@@ -1,0 +1,41 @@
+#inkwell-bubble {
+  position: absolute;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1e293b;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+#inkwell-bubble:hover {
+  background: #2563eb;
+}
+
+#inkwell-bubble.success {
+  background: #059669;
+  cursor: default;
+}
+
+#inkwell-bubble.duplicate {
+  background: #d97706;
+  cursor: default;
+}
+
+#inkwell-bubble.error {
+  background: #dc2626;
+  cursor: default;
+}
+
+#inkwell-bubble .inkwell-icon {
+  font-size: 14px;
+}

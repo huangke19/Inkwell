@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -51,16 +52,48 @@ func (h *WordHandler) AddForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WordHandler) Create(w http.ResponseWriter, r *http.Request) {
-	word := strings.TrimSpace(r.FormValue("word"))
-	context := strings.TrimSpace(r.FormValue("context"))
+	var word, context string
+
+	if r.Header.Get("Content-Type") == "application/json" {
+		// 扩展 / API 调用
+		var body struct {
+			Word    string `json:"word"`
+			Context string `json:"context"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "请求格式错误"})
+			return
+		}
+		word = strings.TrimSpace(body.Word)
+		context = strings.TrimSpace(body.Context)
+	} else {
+		word = strings.TrimSpace(r.FormValue("word"))
+		context = strings.TrimSpace(r.FormValue("context"))
+	}
+
+	isJSON := r.Header.Get("Content-Type") == "application/json"
 
 	if word == "" {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "单词不能为空"})
+			return
+		}
 		h.r.Fragment(w, "form_error", map[string]any{"Error": "单词不能为空"})
 		return
 	}
 
 	existing, _ := getWordByText(h.db, word)
 	if existing != nil {
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "already_exists", "word": word})
+			return
+		}
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		h.r.Fragment(w, "form_error", map[string]any{"Error": "单词已存在：" + word})
 		return
@@ -69,11 +102,23 @@ func (h *WordHandler) Create(w http.ResponseWriter, r *http.Request) {
 	created, err := createWord(h.db, word, context)
 	if err != nil {
 		slog.Error("创建单词失败", "err", err)
+		if isJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "保存失败"})
+			return
+		}
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		h.r.Fragment(w, "form_error", map[string]any{"Error": "保存失败，请重试"})
 		return
 	}
 
+	if isJSON {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{"id": created.ID, "word": created.Word})
+		return
+	}
 	if isHTMX(r) {
 		w.Header().Set("HX-Redirect", "/words/"+strconv.FormatInt(created.ID, 10))
 		w.WriteHeader(http.StatusOK)
@@ -221,6 +266,18 @@ func (h *WordHandler) GetAI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.r.Fragment(w, "ai_explanation", map[string]any{"Word": word, "AI": exp})
+}
+
+// CORS 处理扩展发来的预检请求
+func CORS(w http.ResponseWriter, r *http.Request) {
+	setCORSHeaders(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func setCORSHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
 func isHTMX(r *http.Request) bool {

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Inkwell",
+  "version": "1.0",
+  "description": "选中单词，一键加入 Inkwell 词库",
+  "permissions": ["storage"],
+  "host_permissions": ["http://localhost:9090/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["bubble.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  }
+}
