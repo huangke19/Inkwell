@@ -4,3 +4,5 @@ ewords.db-shm
 ewords.db-wal
 ewords
 .DS_Store
+.inkwell.pid
+inkwell.log
