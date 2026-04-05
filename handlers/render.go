@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"ewords/models"
+	"inkwell/models"
 	"strings"
 )
 

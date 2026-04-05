@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"ewords/srs"
+	"inkwell/srs"
 )
 
 type ReviewHandler struct {

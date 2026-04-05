@@ -1,4 +1,4 @@
-module ewords
+module inkwell
 
 go 1.26.1
 

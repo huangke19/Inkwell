@@ -6,7 +6,7 @@ package handlers
 import (
 	"database/sql"
 
-	"ewords/models"
+	"inkwell/models"
 )
 
 func createWord(db *sql.DB, word, context string) (*models.Word, error) {

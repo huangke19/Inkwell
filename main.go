@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"ewords/config"
-	"ewords/db"
-	"ewords/handlers"
+	"inkwell/config"
+	"inkwell/db"
+	"inkwell/handlers"
 )
 
 func main() {
