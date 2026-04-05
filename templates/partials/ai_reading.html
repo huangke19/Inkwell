@@ -1,0 +1,15 @@
+{{define "ai_reading"}}
+<div class="reading-card">
+  <div class="reading-header">
+    <span class="reading-label">📖 学习模式</span>
+    <span class="reading-word">{{.Word.Word}}</span>
+  </div>
+
+  {{template "ai_explanation" .}}
+
+  <button class="btn-primary"
+    hx-post="/review/{{.Word.ID}}/confirm-forgot"
+    hx-target="#quiz-area"
+    hx-swap="innerHTML">我已了解，继续</button>
+</div>
+{{end}}

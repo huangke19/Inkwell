@@ -3,7 +3,7 @@
   <div class="ai-header">
     <div class="ai-header-left">
       <span class="pos">{{.AI.PartOfSpeech}}</span>
-      <span class="primary-meaning">{{.AI.PrimaryMeaning}}</span>
+      <span class="primary-meaning-en">{{firstSentence .AI.EnglishDef}}</span>
     </div>
     <div class="ai-header-right">
       {{if .AI.Phonetic}}

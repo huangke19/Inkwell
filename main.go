@@ -40,8 +40,11 @@ func main() {
 	mux.HandleFunc("GET /words/{id}/ai", wordHandler.GetAI)
 
 	mux.HandleFunc("GET /review", reviewHandler.Start)
-	mux.HandleFunc("POST /review/{id}", reviewHandler.Submit)
 	mux.HandleFunc("GET /review/next", reviewHandler.Next)
+	mux.HandleFunc("POST /review/{id}/forgot", reviewHandler.Forgot)
+	mux.HandleFunc("POST /review/{id}/confirm-forgot", reviewHandler.ConfirmForgot)
+	mux.HandleFunc("POST /review/{id}/remember", reviewHandler.Remember)
+	mux.HandleFunc("POST /review/{id}/explain", reviewHandler.Explain)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

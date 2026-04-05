@@ -172,6 +172,81 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 	return exp, nil
 }
 
+type JudgeResult struct {
+	Correct  bool   `json:"correct"`
+	TooVague bool   `json:"too_vague"`
+	Feedback string `json:"feedback"`
+}
+
+// JudgeEnglishExplanation 调用 AI 判断用户的英文解释是否正确
+func JudgeEnglishExplanation(apiKey, word, explanation, englishDef string) (*JudgeResult, error) {
+	prompt := fmt.Sprintf(`你是英语词汇评测助手。请判断学习者对单词的英文解释是否正确。
+
+单词：%s
+参考释义：%s
+学习者的解释：%s
+
+请返回严格 JSON（不加代码块标记）：
+{
+  "correct": true或false,
+  "too_vague": true或false,
+  "feedback": "简短的中文反馈（1-2句）"
+}
+
+判断规则：
+- correct: 学习者抓住了核心含义即可，表达不必完美
+- too_vague: 解释少于5个单词、无实质内容、或完全跑题时为true
+- feedback: 鼓励性语气，指出正确点或欠缺之处`, word, englishDef, explanation)
+
+	reqBody := map[string]any{
+		"model": "llama-3.3-70b-versatile",
+		"messages": []map[string]any{
+			{"role": "user", "content": prompt},
+		},
+		"temperature": 0,
+		"max_tokens":  256,
+	}
+
+	bodyBytes, _ := json.Marshal(reqBody)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, groqURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Groq API 请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Groq API 返回错误 %d: %s", resp.StatusCode, string(respBytes))
+	}
+
+	var groqResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBytes, &groqResp); err != nil || len(groqResp.Choices) == 0 {
+		return nil, fmt.Errorf("解析 Groq 响应失败")
+	}
+
+	var result JudgeResult
+	if err := json.Unmarshal([]byte(groqResp.Choices[0].Message.Content), &result); err != nil {
+		return nil, fmt.Errorf("解析判断结果失败: %w", err)
+	}
+	return &result, nil
+}
+
 func parseAI(w *models.Word) (*AIExplanation, error) {
 	var meaning struct {
 		PrimaryMeaning string       `json:"primary_meaning"`

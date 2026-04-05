@@ -3,10 +3,10 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"strings"
 	"time"
 
 	"inkwell/models"
-	"strings"
 )
 
 // Renderer 按需组合模板，避免多页面 {{define "content"}} 命名冲突
@@ -18,6 +18,18 @@ func NewRenderer() *Renderer {
 	return &Renderer{
 		funcMap: template.FuncMap{
 			"inc": func(i int) int { return i + 1 },
+			"firstSentence": func(s string) string {
+				if s == "" {
+					return ""
+				}
+				if idx := strings.Index(s, ". "); idx != -1 {
+					return s[:idx+1]
+				}
+				if len(s) > 120 {
+					return s[:120] + "…"
+				}
+				return s
+			},
 			"primaryMeaning": func(aiMeaning string) string {
 				if aiMeaning == "" {
 					return "—"
@@ -64,6 +76,8 @@ func (r *Renderer) Page(w http.ResponseWriter, page string, data any, extraFiles
 		"templates/" + page + ".html",
 		"templates/partials/ai_explanation.html",
 		"templates/partials/review_result.html",
+		"templates/partials/ai_reading.html",
+		"templates/partials/english_input.html",
 		"templates/partials/form_error.html",
 	}
 	files = append(files, extraFiles...)
@@ -83,6 +97,8 @@ func (r *Renderer) Fragment(w http.ResponseWriter, name string, data any, extraF
 	files := []string{
 		"templates/partials/ai_explanation.html",
 		"templates/partials/review_result.html",
+		"templates/partials/ai_reading.html",
+		"templates/partials/english_input.html",
 		"templates/partials/form_error.html",
 	}
 	files = append(files, extraFiles...)

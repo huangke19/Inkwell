@@ -1,0 +1,27 @@
+{{define "english_input"}}
+<div class="quiz-card" id="quiz-card">
+  <div class="quiz-word">{{.Word.Word}}</div>
+  {{if .Word.Context}}
+  <div class="quiz-context">{{.Word.Context}}</div>
+  {{end}}
+
+  <p class="explain-prompt">用英文解释这个词的意思和用法：</p>
+
+  {{if .Error}}
+  <div class="input-error">{{.Error}}</div>
+  {{end}}
+
+  <form hx-post="/review/{{.Word.ID}}/explain"
+        hx-target="#quiz-area"
+        hx-swap="innerHTML">
+    <div class="field">
+      <textarea name="explanation"
+                rows="4"
+                placeholder="Try to explain the meaning, usage, and context of this word..."
+                autofocus
+                autocomplete="off">{{.PrevAnswer}}</textarea>
+    </div>
+    <button type="submit" class="btn-primary">提交</button>
+  </form>
+</div>
+{{end}}

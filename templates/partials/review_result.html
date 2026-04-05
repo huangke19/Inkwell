@@ -3,23 +3,18 @@
   {{if .Correct}}
   <div class="result-label correct">正确！</div>
   {{else}}
-  <div class="result-label incorrect">再想想</div>
+  <div class="result-label incorrect">再接再厉</div>
   {{end}}
 
-  <div class="result-answer">
-    <span class="label">你的答案：</span>
-    <span>{{if .UserAnswer}}{{.UserAnswer}}{{else}}<em>（未填写）</em>{{end}}</span>
-  </div>
-  <div class="result-answer">
-    <span class="label">参考答案：</span>
-    <span>{{.AI.PrimaryMeaning}}
-      {{range .AI.Definitions}} · {{.ZH}}{{end}}
-    </span>
-  </div>
+  {{if .Feedback}}
+  <div class="result-feedback">{{.Feedback}}</div>
+  {{end}}
 
   <div class="result-next">
     下次复习：{{.NewInterval}} 天后
   </div>
+
+  {{template "ai_explanation" .}}
 
   <button class="btn-primary"
     hx-get="/review/next"

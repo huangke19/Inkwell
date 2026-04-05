@@ -25,15 +25,16 @@
   {{if .Word.Context}}
   <div class="quiz-context">{{.Word.Context}}</div>
   {{end}}
-  <form hx-post="/review/{{.Word.ID}}"
-        hx-target="#result-area"
-        hx-swap="innerHTML">
-    <div class="field">
-      <input type="text" name="answer" placeholder="输入中文释义..." autofocus autocomplete="off">
-    </div>
-    <button type="submit" class="btn-primary">提交</button>
-  </form>
-  <div id="result-area"></div>
+  <div class="quiz-actions">
+    <button class="btn-forgot"
+      hx-post="/review/{{.Word.ID}}/forgot"
+      hx-target="#quiz-area"
+      hx-swap="innerHTML">不记得</button>
+    <button class="btn-primary"
+      hx-post="/review/{{.Word.ID}}/remember"
+      hx-target="#quiz-area"
+      hx-swap="innerHTML">记得</button>
+  </div>
 </div>
 {{else}}
 <div class="done-state">

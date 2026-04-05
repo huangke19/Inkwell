@@ -80,6 +80,7 @@ tr:hover td { background: #f9fafb; }
 .btn-speak:hover { background: #f3f4f6; }
 .pos { background: #e0e7ff; color: #4338ca; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
 .primary-meaning { font-size: 1.25rem; font-weight: 600; }
+.primary-meaning-en { font-size: 0.9rem; color: #374151; line-height: 1.4; }
 .section { margin-bottom: 1.25rem; }
 .section h3 { font-size: 0.8rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
 .definitions { list-style: none; }
@@ -107,7 +108,22 @@ tr:hover td { background: #f9fafb; }
 .quiz-word { font-size: 2.5rem; font-weight: 700; text-align: center; margin-bottom: 0.75rem; color: #1a1a1a; }
 .quiz-context { font-size: 0.9rem; color: #6b7280; font-style: italic; text-align: center; margin-bottom: 1.5rem; padding: 0.75rem; background: #f9fafb; border-radius: 6px; }
 .quiz-card .field input { font-size: 1rem; }
+.quiz-card .field textarea { width: 100%; font-size: 0.95rem; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; font-family: inherit; line-height: 1.5; box-sizing: border-box; }
+.quiz-card .field textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
 .quiz-card .btn-primary { width: 100%; margin-top: 0.5rem; padding: 0.75rem; font-size: 1rem; }
+.quiz-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+.quiz-actions button { flex: 1; padding: 0.75rem; font-size: 1rem; border-radius: 8px; cursor: pointer; border: none; font-weight: 600; }
+.btn-forgot { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db !important; }
+.btn-forgot:hover { background: #e5e7eb; }
+.explain-prompt { font-size: 0.9rem; color: #6b7280; margin: 1rem 0 0.5rem; }
+.input-error { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 6px; padding: 0.6rem 0.75rem; font-size: 0.875rem; margin-bottom: 0.75rem; }
+.reading-card { background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.reading-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
+.reading-label { font-size: 0.8rem; background: #eff6ff; color: #2563eb; padding: 0.25rem 0.6rem; border-radius: 4px; white-space: nowrap; }
+.reading-word { font-size: 1.75rem; font-weight: 700; color: #1a1a1a; }
+.reading-card .btn-primary { width: 100%; margin-top: 1.5rem; padding: 0.75rem; font-size: 1rem; }
+.result-feedback { font-size: 0.95rem; color: #374151; background: #f9fafb; border-left: 3px solid #2563eb; padding: 0.6rem 0.75rem; border-radius: 0 6px 6px 0; margin-bottom: 0.75rem; }
+.result-card .ai-card { margin-top: 1rem; box-shadow: none; border: 1px solid #e5e7eb; }
 
 /* Result Card */
 .result-card { margin-top: 1.25rem; padding: 1.25rem; border-radius: 8px; }
