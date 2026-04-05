@@ -21,6 +21,13 @@
   </div>
 
   <div class="detail-actions">
+    {{if lt .Word.IntervalDays 30}}
+    <button class="btn-mastered"
+      hx-post="/words/{{.Word.ID}}/master"
+      hx-confirm="将「{{.Word.Word}}」直接标记为已掌握？">标记为已掌握</button>
+    {{else}}
+    <span class="mastered-badge">已掌握</span>
+    {{end}}
     <button class="btn-secondary"
       hx-get="/words/{{.Word.ID}}/ai?refresh=1"
       hx-target="#ai-section"

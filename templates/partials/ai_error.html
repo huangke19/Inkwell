@@ -1,0 +1,10 @@
+{{define "ai_error"}}
+<div class="ai-error">
+  <div class="ai-error-title">AI 解释生成失败</div>
+  <div class="ai-error-msg">{{.Error}}</div>
+  <button class="btn-secondary"
+    hx-get="/words/{{.WordID}}/ai?refresh=1"
+    hx-target="#ai-section"
+    hx-swap="innerHTML">重试</button>
+</div>
+{{end}}

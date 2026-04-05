@@ -7,8 +7,8 @@ import (
 
 type Config struct {
 	GroqAPIKey string
-	DBPath          string
-	Port            string
+	DBPath     string
+	Port       string
 }
 
 func Load() *Config {
@@ -26,7 +26,7 @@ func Load() *Config {
 	}
 	return &Config{
 		GroqAPIKey: key,
-		DBPath:          dbPath,
-		Port:            port,
+		DBPath:     dbPath,
+		Port:       port,
 	}
 }

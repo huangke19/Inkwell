@@ -1,0 +1,57 @@
+{{define "content"}}
+<div class="page-header">
+  <h1>已掌握单词</h1>
+  <div class="stats">
+    <span>共 <strong>{{.Count}}</strong> 个词</span>
+    <span class="stat-note">复习间隔已达 30 天</span>
+  </div>
+</div>
+
+<div class="search-bar">
+  <input type="search" name="q" value="{{.Query}}"
+    placeholder="搜索单词..."
+    hx-get="/mastered"
+    hx-trigger="keyup changed delay:300ms, search"
+    hx-target="#mastered-list"
+    hx-select="#mastered-list">
+</div>
+
+<div id="mastered-list">
+  {{template "mastered_list_rows" .}}
+</div>
+{{end}}
+
+{{define "mastered_list_rows"}}
+{{if .Words}}
+<table>
+  <thead>
+    <tr>
+      <th>单词</th>
+      <th>评级</th>
+      <th>核心释义</th>
+      <th>已复习</th>
+      <th>下次复习</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Words}}
+    <tr>
+      <td><a href="/words/{{.ID}}">{{.Word}}</a></td>
+      <td>{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
+      <td class="meaning">{{primaryMeaning .AIMeaning}}</td>
+      <td class="review-time">{{.Repetitions}} 次</td>
+      <td class="review-time">{{reviewTime .NextReviewAt}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="empty-state">
+  {{if .Query}}
+    没有找到「{{.Query}}」相关的已掌握单词
+  {{else}}
+    还没有已掌握的单词。坚持复习，达到 30 天间隔即可毕业！
+  {{end}}
+</div>
+{{end}}
+{{end}}

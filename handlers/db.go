@@ -37,6 +37,18 @@ func countDueWords(db *sql.DB) (int, error) {
 	return models.CountDueWords(db)
 }
 
+func listUnmastered(db *sql.DB, q string) ([]*models.Word, error) {
+	return models.ListUnmastered(db, q)
+}
+
+func listMastered(db *sql.DB, q string) ([]*models.Word, error) {
+	return models.ListMastered(db, q)
+}
+
+func markMastered(db *sql.DB, id int64) error {
+	return models.MarkMastered(db, id)
+}
+
 func wordStats(db *sql.DB) (total, mastered, due int, err error) {
 	total, mastered, err = models.CountWords(db)
 	if err != nil {

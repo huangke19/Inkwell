@@ -24,6 +24,8 @@ func main() {
 	}
 	defer database.Close()
 
+	handlers.InitProviders(cfg.GroqAPIKey, "")
+
 	renderer := handlers.NewRenderer()
 	wordHandler := handlers.NewWordHandler(database, renderer, cfg.GroqAPIKey)
 	reviewHandler := handlers.NewReviewHandler(database, renderer, cfg.GroqAPIKey)
@@ -33,10 +35,13 @@ func main() {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	mux.HandleFunc("GET /", wordHandler.List)
+	mux.HandleFunc("GET /unmastered", wordHandler.Unmastered)
+	mux.HandleFunc("GET /mastered", wordHandler.Mastered)
 	mux.HandleFunc("GET /words/add", wordHandler.AddForm)
 	mux.HandleFunc("POST /words", wordHandler.Create)
 	mux.HandleFunc("GET /words/{id}", wordHandler.Detail)
 	mux.HandleFunc("DELETE /words/{id}", wordHandler.Delete)
+	mux.HandleFunc("POST /words/{id}/master", wordHandler.Master)
 	mux.HandleFunc("GET /words/{id}/ai", wordHandler.GetAI)
 
 	mux.HandleFunc("GET /review", reviewHandler.Start)

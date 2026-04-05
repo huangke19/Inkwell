@@ -1,0 +1,49 @@
+{{define "word_list_rows"}}
+{{if .Words}}
+<table>
+  <thead>
+    <tr>
+      <th>单词</th>
+      <th>评级</th>
+      <th>核心释义</th>
+      <th>下次复习</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Words}}
+    <tr id="word-row-{{.ID}}">
+      <td><a href="/words/{{.ID}}">{{.Word}}</a></td>
+      <td>{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
+      <td class="meaning">{{primaryMeaning .AIMeaning}}</td>
+      <td class="review-time">{{reviewTime .NextReviewAt}}</td>
+      <td class="row-actions">
+        {{if lt .IntervalDays 30}}
+        <button class="btn-mastered btn-sm"
+          hx-post="/words/{{.ID}}/master?inline=1"
+          hx-confirm="将「{{.Word}}」标记为已掌握？"
+          hx-target="#word-row-{{.ID}}"
+          hx-swap="outerHTML swap:300ms">掌握</button>
+        {{else}}
+        <span class="mastered-badge">已掌握</span>
+        {{end}}
+        <button class="btn-danger btn-sm"
+          hx-delete="/words/{{.ID}}"
+          hx-confirm="确认删除「{{.Word}}」？"
+          hx-target="#word-row-{{.ID}}"
+          hx-swap="outerHTML swap:300ms">删除</button>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="empty-state">
+  {{if .Query}}
+    没有找到「{{.Query}}」相关单词
+  {{else}}
+    {{if .EmptyMsg}}{{.EmptyMsg}}{{else}}还没有单词，<a href="/words/add">添加第一个</a>{{end}}
+  {{end}}
+</div>
+{{end}}
+{{end}}

@@ -74,7 +74,9 @@ func (r *Renderer) Page(w http.ResponseWriter, page string, data any, extraFiles
 	files := []string{
 		"templates/layout.html",
 		"templates/" + page + ".html",
+		"templates/partials/word_list_rows.html",
 		"templates/partials/ai_explanation.html",
+		"templates/partials/ai_error.html",
 		"templates/partials/review_result.html",
 		"templates/partials/ai_reading.html",
 		"templates/partials/english_input.html",
@@ -95,7 +97,9 @@ func (r *Renderer) Page(w http.ResponseWriter, page string, data any, extraFiles
 // Fragment 渲染局部片段（HTMX 使用，不套 layout）
 func (r *Renderer) Fragment(w http.ResponseWriter, name string, data any, extraFiles ...string) {
 	files := []string{
+		"templates/partials/word_list_rows.html",
 		"templates/partials/ai_explanation.html",
+		"templates/partials/ai_error.html",
 		"templates/partials/review_result.html",
 		"templates/partials/ai_reading.html",
 		"templates/partials/english_input.html",

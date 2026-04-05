@@ -1,9 +1,8 @@
 {{define "content"}}
 <div class="page-header">
-  <h1>单词库</h1>
+  <h1>生词库</h1>
   <div class="stats">
-    <span>共 <strong>{{.Total}}</strong> 个词</span>
-    <span>已掌握 <strong>{{.Mastered}}</strong> 个</span>
+    <span>共 <strong>{{.Count}}</strong> 个词</span>
     {{if gt .Due 0}}<span class="badge-due">待复习 {{.Due}} 个</span>{{end}}
   </div>
 </div>
@@ -11,7 +10,7 @@
 <div class="search-bar">
   <input type="search" name="q" value="{{.Query}}"
     placeholder="搜索单词..."
-    hx-get="/"
+    hx-get="/unmastered"
     hx-trigger="keyup changed delay:300ms, search"
     hx-target="#word-list"
     hx-select="#word-list">
@@ -21,4 +20,3 @@
   {{template "word_list_rows" .}}
 </div>
 {{end}}
-

@@ -44,7 +44,64 @@ const systemPrompt = `你是一个专业的英语词汇教学助手，帮助中�
 
 const groqURL = "https://api.groq.com/openai/v1/chat/completions"
 
-func fetchAIExplanation(apiKey string, word *models.Word) (*AIExplanation, error) {
+var groqAPIKey string
+
+func InitProviders(groqKey, _ string) {
+	groqAPIKey = groqKey
+}
+
+func callGroq(messages []map[string]any, maxTokens int) (string, error) {
+	reqBody := map[string]any{
+		"model":       "llama-3.1-8b-instant",
+		"messages":    messages,
+		"temperature": 0,
+		"max_tokens":  maxTokens,
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, groqURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+groqAPIKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Groq 请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(respBytes, &errResp) == nil && errResp.Error.Message != "" {
+			return "", fmt.Errorf("Groq 错误 %d: %s", resp.StatusCode, errResp.Error.Message)
+		}
+		return "", fmt.Errorf("Groq 错误 %d", resp.StatusCode)
+	}
+
+	var r struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBytes, &r); err != nil || len(r.Choices) == 0 {
+		return "", fmt.Errorf("解析 Groq 响应失败: %s", string(respBytes))
+	}
+	return r.Choices[0].Message.Content, nil
+}
+
+func fetchAIExplanation(_ string, word *models.Word) (*AIExplanation, error) {
 	userPrompt := fmt.Sprintf("单词：%s\n", word.Word)
 	if word.Context != "" {
 		userPrompt += fmt.Sprintf("用户遇到该词的语境：%s\n", word.Context)
@@ -81,54 +138,15 @@ func fetchAIExplanation(apiKey string, word *models.Word) (*AIExplanation, error
   "cefr_level": "该词的CEFR等级，只填A1/A2/B1/B2/C1/C2之一"
 }`
 
-	reqBody := map[string]any{
-		"model": "llama-3.3-70b-versatile",
-		"messages": []map[string]any{
-			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": userPrompt},
-		},
-		"temperature": 0,
-		"max_tokens":  1024,
+	messages := []map[string]any{
+		{"role": "system", "content": systemPrompt},
+		{"role": "user", "content": userPrompt},
 	}
-
-	bodyBytes, _ := json.Marshal(reqBody)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, groqURL, bytes.NewReader(bodyBytes))
+	raw, err := callGroq(messages, 2048)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("Groq API 请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBytes, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Groq API 返回错误 %d: %s", resp.StatusCode, string(respBytes))
-	}
-
-	var groqResp struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.Unmarshal(respBytes, &groqResp); err != nil {
-		return nil, fmt.Errorf("解析 Groq 响应失败: %w", err)
-	}
-	if len(groqResp.Choices) == 0 {
-		return nil, fmt.Errorf("Groq 返回空内容")
-	}
-
-	raw := groqResp.Choices[0].Message.Content
 	var exp AIExplanation
 	if err := json.Unmarshal([]byte(raw), &exp); err != nil {
 		return nil, fmt.Errorf("解析 AI JSON 失败: %w\n原始内容: %s", err, raw)
@@ -203,7 +221,7 @@ type JudgeResult struct {
 }
 
 // JudgeEnglishExplanation 调用 AI 判断用户的英文解释是否正确
-func JudgeEnglishExplanation(apiKey, word, explanation, englishDef string) (*JudgeResult, error) {
+func JudgeEnglishExplanation(_ string, word, explanation, englishDef string) (*JudgeResult, error) {
 	prompt := fmt.Sprintf(`你是英语词汇评测助手。请判断学习者对单词的英文解释是否正确。
 
 单词：%s
@@ -222,50 +240,14 @@ func JudgeEnglishExplanation(apiKey, word, explanation, englishDef string) (*Jud
 - too_vague: 解释少于5个单词、无实质内容、或完全跑题时为true
 - feedback: 鼓励性语气，指出正确点或欠缺之处`, word, englishDef, explanation)
 
-	reqBody := map[string]any{
-		"model": "llama-3.3-70b-versatile",
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
-		"temperature": 0,
-		"max_tokens":  256,
-	}
-
-	bodyBytes, _ := json.Marshal(reqBody)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, groqURL, bytes.NewReader(bodyBytes))
+	messages := []map[string]any{{"role": "user", "content": prompt}}
+	raw, err := callGroq(messages, 256)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("Groq API 请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBytes, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Groq API 返回错误 %d: %s", resp.StatusCode, string(respBytes))
-	}
-
-	var groqResp struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.Unmarshal(respBytes, &groqResp); err != nil || len(groqResp.Choices) == 0 {
-		return nil, fmt.Errorf("解析 Groq 响应失败")
-	}
 
 	var result JudgeResult
-	if err := json.Unmarshal([]byte(groqResp.Choices[0].Message.Content), &result); err != nil {
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
 		return nil, fmt.Errorf("解析判断结果失败: %w", err)
 	}
 	return &result, nil

@@ -23,7 +23,11 @@ main { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem; }
 .btn-secondary:hover { background: #e5e7eb; }
 .btn-danger { padding: 0.4rem 0.9rem; background: #fff; color: #dc2626; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
 .btn-danger:hover { background: #fee2e2; }
+.btn-mastered { padding: 0.4rem 0.9rem; background: #fff; color: #059669; border: 1px solid #6ee7b7; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.btn-mastered:hover { background: #ecfdf5; }
+.mastered-badge { display: inline-block; font-size: 0.8rem; color: #059669; background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 4px; padding: 0.15rem 0.5rem; }
 .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+.row-actions { display: flex; gap: 0.4rem; align-items: center; }
 
 /* Forms */
 .field { margin-bottom: 1rem; }
@@ -60,6 +64,7 @@ tr:hover td { background: #f9fafb; }
 
 /* Empty State */
 .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; }
+.stat-note { font-size: 0.8rem; color: #9ca3af; }
 
 /* Detail Page */
 .detail-page { max-width: 680px; }
@@ -159,3 +164,8 @@ tr:hover td { background: #f9fafb; }
   .detail-header { flex-direction: column; }
   .quiz-word { font-size: 2rem; }
 }
+
+/* AI Error */
+.ai-error { padding: 1.5rem; background: #fff8f8; border: 1px solid #fca5a5; border-radius: 8px; display: flex; flex-direction: column; gap: 0.75rem; }
+.ai-error-title { font-weight: 600; color: #dc2626; }
+.ai-error-msg { font-size: 0.875rem; color: #6b7280; word-break: break-all; white-space: pre-wrap; }

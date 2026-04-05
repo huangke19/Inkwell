@@ -121,6 +121,72 @@ func (h *WordHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (h *WordHandler) Unmastered(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	words, err := listUnmastered(h.db, q)
+	if err != nil {
+		http.Error(w, "查询失败", http.StatusInternalServerError)
+		return
+	}
+	due, _ := countDueWords(h.db)
+	data := map[string]any{
+		"Words":    words,
+		"Query":    q,
+		"Count":    len(words),
+		"Due":      due,
+		"EmptyMsg": "太棒了，所有单词都已掌握！",
+	}
+	if isHTMX(r) {
+		h.r.Fragment(w, "word_list_rows", data, "templates/partials/word_list_rows.html")
+		return
+	}
+	h.r.Page(w, "unmastered", data)
+}
+
+func (h *WordHandler) Mastered(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	words, err := listMastered(h.db, q)
+	if err != nil {
+		http.Error(w, "查询失败", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]any{
+		"Words": words,
+		"Query": q,
+		"Count": len(words),
+	}
+
+	if isHTMX(r) {
+		h.r.Fragment(w, "mastered_list_rows", data, "templates/mastered.html")
+		return
+	}
+	h.r.Page(w, "mastered", data)
+}
+
+func (h *WordHandler) Master(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := markMastered(h.db, id); err != nil {
+		http.Error(w, "操作失败", http.StatusInternalServerError)
+		return
+	}
+	// inline=1 时（单词列表行）只删除行，不跳转
+	if isHTMX(r) && r.URL.Query().Get("inline") == "1" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if isHTMX(r) {
+		w.Header().Set("HX-Redirect", "/mastered")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, "/mastered", http.StatusSeeOther)
+}
+
 func (h *WordHandler) GetAI(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
 	if err != nil {
@@ -147,7 +213,10 @@ func (h *WordHandler) GetAI(w http.ResponseWriter, r *http.Request) {
 	exp, err := EnsureAI(h.db, h.apiKey, word)
 	if err != nil {
 		slog.Error("AI 生成失败", "word", word.Word, "err", err)
-		http.Error(w, "AI 解释生成失败，请稍后重试", http.StatusInternalServerError)
+		h.r.Fragment(w, "ai_error", map[string]any{
+			"WordID": word.ID,
+			"Error":  err.Error(),
+		})
 		return
 	}
 
