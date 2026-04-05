@@ -1,5 +1,10 @@
 {{define "ai_explanation"}}
 <div class="ai-card">
+  {{if .Word.RatingCEFR}}
+  <div class="rating-row">
+    <span class="rating-badge rec-{{.Word.RatingRec}}">{{.Word.RatingCEFR}} · {{.Word.RatingFreq}} · {{.Word.RatingRec}}</span>
+  </div>
+  {{end}}
   <div class="ai-header">
     <div class="ai-header-left">
       <span class="pos">{{.AI.PartOfSpeech}}</span>

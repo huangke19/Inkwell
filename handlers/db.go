@@ -46,6 +46,10 @@ func wordStats(db *sql.DB) (total, mastered, due int, err error) {
 	return
 }
 
+func updateWordRating(db *sql.DB, id int64, cefr, freq, rec string) error {
+	return models.UpdateWordRating(db, id, cefr, freq, rec)
+}
+
 func updateWordSRS(db *sql.DB, id int64, interval int, nextAt int64, reps int) error {
 	return models.UpdateWordSRS(db, id, interval, nextAt, reps)
 }

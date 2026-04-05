@@ -7,19 +7,22 @@ import (
 )
 
 type Word struct {
-	ID             int64
-	Word           string
-	Context        string
-	AIMeaning      string // JSON
-	AIExamples     string // JSON
-	AIScenarios    string // JSON
-	AIMemoryTip    string
-	AIGeneratedAt  int64
-	IntervalDays   int
-	NextReviewAt   int64
-	Repetitions    int
-	CreatedAt      int64
-	UpdatedAt      int64
+	ID            int64
+	Word          string
+	Context       string
+	AIMeaning     string // JSON
+	AIExamples    string // JSON
+	AIScenarios   string // JSON
+	AIMemoryTip   string
+	AIGeneratedAt int64
+	IntervalDays  int
+	NextReviewAt  int64
+	Repetitions   int
+	RatingCEFR    string
+	RatingFreq    string
+	RatingRec     string
+	CreatedAt     int64
+	UpdatedAt     int64
 }
 
 func (w *Word) AIReady() bool {
@@ -29,6 +32,13 @@ func (w *Word) AIReady() bool {
 	// 缓存 30 天有效
 	return time.Now().Unix()-w.AIGeneratedAt < 30*24*3600
 }
+
+const selectCols = `id,word,context,
+	COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
+	COALESCE(ai_generated_at,0),
+	interval_days,next_review_at,repetitions,
+	COALESCE(rating_cefr,''),COALESCE(rating_freq,''),COALESCE(rating_rec,''),
+	created_at,updated_at`
 
 func CreateWord(db *sql.DB, word, context string) (*Word, error) {
 	res, err := db.Exec(
@@ -43,20 +53,12 @@ func CreateWord(db *sql.DB, word, context string) (*Word, error) {
 }
 
 func GetWordByID(db *sql.DB, id int64) (*Word, error) {
-	row := db.QueryRow(`SELECT id,word,context,
-		COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
-		COALESCE(ai_generated_at,0),
-		interval_days,next_review_at,repetitions,created_at,updated_at
-		FROM words WHERE id=?`, id)
+	row := db.QueryRow(`SELECT `+selectCols+` FROM words WHERE id=?`, id)
 	return scanWord(row)
 }
 
 func GetWordByText(db *sql.DB, word string) (*Word, error) {
-	row := db.QueryRow(`SELECT id,word,context,
-		COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
-		COALESCE(ai_generated_at,0),
-		interval_days,next_review_at,repetitions,created_at,updated_at
-		FROM words WHERE word=?`, word)
+	row := db.QueryRow(`SELECT `+selectCols+` FROM words WHERE word=?`, word)
 	return scanWord(row)
 }
 
@@ -64,17 +66,9 @@ func ListWords(db *sql.DB, q string) ([]*Word, error) {
 	var rows *sql.Rows
 	var err error
 	if q != "" {
-		rows, err = db.Query(`SELECT id,word,context,
-			COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
-			COALESCE(ai_generated_at,0),
-			interval_days,next_review_at,repetitions,created_at,updated_at
-			FROM words WHERE word LIKE ? ORDER BY created_at DESC`, "%"+q+"%")
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE word LIKE ? ORDER BY created_at DESC`, "%"+q+"%")
 	} else {
-		rows, err = db.Query(`SELECT id,word,context,
-			COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
-			COALESCE(ai_generated_at,0),
-			interval_days,next_review_at,repetitions,created_at,updated_at
-			FROM words ORDER BY created_at DESC`)
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words ORDER BY created_at DESC`)
 	}
 	if err != nil {
 		return nil, err
@@ -88,6 +82,7 @@ func ListWords(db *sql.DB, q string) ([]*Word, error) {
 			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
+			&w.RatingCEFR, &w.RatingFreq, &w.RatingRec,
 			&w.CreatedAt, &w.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -110,6 +105,12 @@ func UpdateWordAI(db *sql.DB, id int64, meaning, examples, scenarios, memoryTip 
 	return err
 }
 
+func UpdateWordRating(db *sql.DB, id int64, cefr, freq, rec string) error {
+	_, err := db.Exec(`UPDATE words SET rating_cefr=?, rating_freq=?, rating_rec=?, updated_at=unixepoch() WHERE id=?`,
+		cefr, freq, rec, id)
+	return err
+}
+
 func UpdateWordSRS(db *sql.DB, id int64, intervalDays int, nextReviewAt int64, repetitions int) error {
 	_, err := db.Exec(`UPDATE words SET
 		interval_days=?, next_review_at=?, repetitions=?, updated_at=unixepoch()
@@ -125,11 +126,7 @@ func CountDueWords(db *sql.DB) (int, error) {
 }
 
 func NextDueWord(db *sql.DB) (*Word, error) {
-	row := db.QueryRow(`SELECT id,word,context,
-		COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
-		COALESCE(ai_generated_at,0),
-		interval_days,next_review_at,repetitions,created_at,updated_at
-		FROM words WHERE next_review_at <= ? ORDER BY next_review_at ASC LIMIT 1`,
+	row := db.QueryRow(`SELECT `+selectCols+` FROM words WHERE next_review_at <= ? ORDER BY next_review_at ASC LIMIT 1`,
 		time.Now().Unix())
 	w, err := scanWord(row)
 	if err == sql.ErrNoRows {
@@ -157,6 +154,7 @@ func scanWord(row *sql.Row) (*Word, error) {
 		&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
 		&w.AIGeneratedAt,
 		&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
+		&w.RatingCEFR, &w.RatingFreq, &w.RatingRec,
 		&w.CreatedAt, &w.UpdatedAt)
 	if err != nil {
 		return nil, err

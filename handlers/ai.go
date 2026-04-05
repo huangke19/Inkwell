@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"inkwell/freq"
 	"inkwell/models"
 )
 
@@ -22,6 +23,7 @@ type AIExplanation struct {
 	Examples       []Example    `json:"examples"`
 	Scenarios      []string     `json:"scenarios"`
 	MemoryTip      string       `json:"memory_tip"`
+	CEFRLevel      string       `json:"cefr_level"`
 }
 
 type Definition struct {
@@ -75,7 +77,8 @@ func fetchAIExplanation(apiKey string, word *models.Word) (*AIExplanation, error
     "常见使用场景2",
     "常见使用场景3"
   ],
-  "memory_tip": "记忆技巧或词根词缀提示（中文，可选）"
+  "memory_tip": "记忆技巧或词根词缀提示（中文，可选）",
+  "cefr_level": "该词的CEFR等级，只填A1/A2/B1/B2/C1/C2之一"
 }`
 
 	reqBody := map[string]any{
@@ -135,39 +138,60 @@ func fetchAIExplanation(apiKey string, word *models.Word) (*AIExplanation, error
 
 // EnsureAI 确保单词有 AI 解释（缓存命中直接返回，否则调用 API）
 func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error) {
+	var exp *AIExplanation
+
 	if w.AIReady() {
-		return parseAI(w)
+		var err error
+		exp, err = parseAI(w)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		exp, err = fetchAIExplanation(apiKey, w)
+		if err != nil {
+			return nil, err
+		}
+
+		examplesJSON, _ := json.Marshal(exp.Examples)
+		scenariosJSON, _ := json.Marshal(exp.Scenarios)
+		meaningJSON, _ := json.Marshal(map[string]any{
+			"primary_meaning": exp.PrimaryMeaning,
+			"part_of_speech":  exp.PartOfSpeech,
+			"phonetic":        exp.Phonetic,
+			"english_def":     exp.EnglishDef,
+			"definitions":     exp.Definitions,
+		})
+
+		if err := models.UpdateWordAI(db, w.ID,
+			string(meaningJSON),
+			string(examplesJSON),
+			string(scenariosJSON),
+			exp.MemoryTip,
+		); err != nil {
+			return nil, err
+		}
+
+		w.AIMeaning = string(meaningJSON)
+		w.AIExamples = string(examplesJSON)
+		w.AIScenarios = string(scenariosJSON)
+		w.AIMemoryTip = exp.MemoryTip
+		w.AIGeneratedAt = time.Now().Unix()
 	}
 
-	exp, err := fetchAIExplanation(apiKey, w)
-	if err != nil {
-		return nil, err
+	// 评级：优先查本地词表，其次用 AI 返回的 CEFR
+	if w.RatingCEFR == "" {
+		var rating freq.Rating
+		if r, ok := freq.Lookup(w.Word); ok {
+			rating = r
+		} else {
+			rating = freq.CEFRToRating(exp.CEFRLevel)
+		}
+		models.UpdateWordRating(db, w.ID, rating.CEFR, rating.Freq, rating.Rec)
+		w.RatingCEFR = rating.CEFR
+		w.RatingFreq = rating.Freq
+		w.RatingRec = rating.Rec
 	}
-
-	examplesJSON, _ := json.Marshal(exp.Examples)
-	scenariosJSON, _ := json.Marshal(exp.Scenarios)
-	meaningJSON, _ := json.Marshal(map[string]any{
-		"primary_meaning": exp.PrimaryMeaning,
-		"part_of_speech":  exp.PartOfSpeech,
-		"phonetic":        exp.Phonetic,
-		"english_def":     exp.EnglishDef,
-		"definitions":     exp.Definitions,
-	})
-
-	if err := models.UpdateWordAI(db, w.ID,
-		string(meaningJSON),
-		string(examplesJSON),
-		string(scenariosJSON),
-		exp.MemoryTip,
-	); err != nil {
-		return nil, err
-	}
-
-	w.AIMeaning = string(meaningJSON)
-	w.AIExamples = string(examplesJSON)
-	w.AIScenarios = string(scenariosJSON)
-	w.AIMemoryTip = exp.MemoryTip
-	w.AIGeneratedAt = time.Now().Unix()
 
 	return exp, nil
 }

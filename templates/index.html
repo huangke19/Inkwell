@@ -28,6 +28,7 @@
   <thead>
     <tr>
       <th>单词</th>
+      <th>评级</th>
       <th>核心释义</th>
       <th>下次复习</th>
       <th></th>
@@ -37,6 +38,7 @@
     {{range .Words}}
     <tr id="word-row-{{.ID}}">
       <td><a href="/words/{{.ID}}">{{.Word}}</a></td>
+      <td>{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
       <td class="meaning">{{primaryMeaning .AIMeaning}}</td>
       <td class="review-time">{{reviewTime .NextReviewAt}}</td>
       <td>
