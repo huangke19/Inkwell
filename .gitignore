@@ -1,0 +1,6 @@
+.env
+ewords.db
+ewords.db-shm
+ewords.db-wal
+ewords
+.DS_Store

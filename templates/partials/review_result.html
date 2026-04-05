@@ -1,0 +1,29 @@
+{{define "review_result"}}
+<div class="result-card {{if .Correct}}correct{{else}}incorrect{{end}}">
+  {{if .Correct}}
+  <div class="result-label correct">正确！</div>
+  {{else}}
+  <div class="result-label incorrect">再想想</div>
+  {{end}}
+
+  <div class="result-answer">
+    <span class="label">你的答案：</span>
+    <span>{{if .UserAnswer}}{{.UserAnswer}}{{else}}<em>（未填写）</em>{{end}}</span>
+  </div>
+  <div class="result-answer">
+    <span class="label">参考答案：</span>
+    <span>{{.AI.PrimaryMeaning}}
+      {{range .AI.Definitions}} · {{.ZH}}{{end}}
+    </span>
+  </div>
+
+  <div class="result-next">
+    下次复习：{{.NewInterval}} 天后
+  </div>
+
+  <button class="btn-primary"
+    hx-get="/review/next"
+    hx-target="#quiz-area"
+    hx-swap="innerHTML">下一个</button>
+</div>
+{{end}}

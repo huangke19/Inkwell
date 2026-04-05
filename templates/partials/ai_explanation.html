@@ -1,0 +1,82 @@
+{{define "ai_explanation"}}
+<div class="ai-card">
+  <div class="ai-header">
+    <div class="ai-header-left">
+      <span class="pos">{{.AI.PartOfSpeech}}</span>
+      <span class="primary-meaning">{{.AI.PrimaryMeaning}}</span>
+    </div>
+    <div class="ai-header-right">
+      {{if .AI.Phonetic}}
+      <span class="phonetic">{{.AI.Phonetic}}</span>
+      {{end}}
+      <button class="btn-speak" onclick="speak('{{.Word.Word}}')" title="播放发音">🔊</button>
+    </div>
+  </div>
+  <script>
+    function speak(word) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(word);
+      u.lang = 'en-US';
+      u.rate = 0.9;
+      window.speechSynthesis.speak(u);
+    }
+  </script>
+
+  {{if .AI.EnglishDef}}
+  <div class="section">
+    <h3>English Definition</h3>
+    <p class="english-def">{{.AI.EnglishDef}}</p>
+  </div>
+  {{end}}
+
+  {{if .AI.Definitions}}
+  <div class="section">
+    <h3>中文释义</h3>
+    <ul class="definitions">
+      {{range .AI.Definitions}}
+      <li>
+        {{.ZH}}
+        {{if .Note}}<span class="note">（{{.Note}}）</span>{{end}}
+      </li>
+      {{end}}
+    </ul>
+  </div>
+  {{end}}
+
+  {{if .AI.Examples}}
+  <div class="section">
+    <h3>例句（{{len .AI.Examples}} 条）</h3>
+    <div class="examples">
+      {{range $i, $e := .AI.Examples}}
+      <div class="example">
+        <span class="example-num">{{inc $i}}</span>
+        <div class="example-content">
+          <p class="example-en">{{$e.EN}}</p>
+          <p class="example-zh">{{$e.ZH}}</p>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
+  {{if .AI.Scenarios}}
+  <div class="section">
+    <h3>常见使用场景</h3>
+    <ul class="scenarios">
+      {{range .AI.Scenarios}}
+      <li>{{.}}</li>
+      {{end}}
+    </ul>
+  </div>
+  {{end}}
+
+  {{if .AI.MemoryTip}}
+  <div class="section memory-tip">
+    <h3>记忆技巧</h3>
+    <p>{{.AI.MemoryTip}}</p>
+  </div>
+  {{end}}
+</div>
+{{end}}

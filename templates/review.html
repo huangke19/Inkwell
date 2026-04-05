@@ -1,0 +1,46 @@
+{{define "content"}}
+<div class="review-page">
+  {{if .Word}}
+  <div class="review-header">
+    <span class="due-count">待复习 {{.Due}} 个</span>
+  </div>
+  <div id="quiz-area">
+    {{template "quiz_card" .}}
+  </div>
+  {{else}}
+  <div class="done-state">
+    <div class="done-icon">✓</div>
+    <h2>今日任务完成！</h2>
+    <p>所有单词已复习完毕，明天继续。</p>
+    <a href="/" class="btn-primary">返回单词库</a>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "quiz_card"}}
+{{if .Word}}
+<div class="quiz-card" id="quiz-card">
+  <div class="quiz-word">{{.Word.Word}}</div>
+  {{if .Word.Context}}
+  <div class="quiz-context">{{.Word.Context}}</div>
+  {{end}}
+  <form hx-post="/review/{{.Word.ID}}"
+        hx-target="#result-area"
+        hx-swap="innerHTML">
+    <div class="field">
+      <input type="text" name="answer" placeholder="输入中文释义..." autofocus autocomplete="off">
+    </div>
+    <button type="submit" class="btn-primary">提交</button>
+  </form>
+  <div id="result-area"></div>
+</div>
+{{else}}
+<div class="done-state">
+  <div class="done-icon">✓</div>
+  <h2>今日任务完成！</h2>
+  <p>所有单词已复习完毕。</p>
+  <a href="/" class="btn-primary">返回单词库</a>
+</div>
+{{end}}
+{{end}}

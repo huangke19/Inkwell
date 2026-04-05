@@ -1,0 +1,35 @@
+{{define "content"}}
+<div class="detail-page">
+  <div class="detail-header">
+    <div>
+      <h1>{{.Word.Word}}</h1>
+      {{if .Word.Context}}
+      <p class="context-quote">「{{.Word.Context}}」</p>
+      {{end}}
+    </div>
+    <div class="detail-meta">
+      <span>间隔 {{.Word.IntervalDays}} 天</span>
+      <span>{{reviewTime .Word.NextReviewAt}}</span>
+    </div>
+  </div>
+
+  <div id="ai-section"
+    hx-get="/words/{{.Word.ID}}/ai"
+    hx-trigger="load"
+    hx-swap="innerHTML">
+    <div class="loading">正在生成 AI 解释...</div>
+  </div>
+
+  <div class="detail-actions">
+    <button class="btn-secondary"
+      hx-get="/words/{{.Word.ID}}/ai?refresh=1"
+      hx-target="#ai-section"
+      hx-swap="innerHTML"
+      hx-confirm="重新生成会消耗 API 用量，确认？">重新生成解释</button>
+    <button class="btn-danger"
+      hx-delete="/words/{{.Word.ID}}"
+      hx-confirm="确认删除「{{.Word.Word}}」？"
+      hx-on::after-request="window.location='/'">删除单词</button>
+  </div>
+</div>
+{{end}}
