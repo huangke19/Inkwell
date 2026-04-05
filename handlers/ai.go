@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"inkwell/freq"
@@ -51,8 +53,16 @@ func InitProviders(groqKey, _ string) {
 }
 
 func callGroq(messages []map[string]any, maxTokens int) (string, error) {
+	return callGroqWithModel("llama-3.1-8b-instant", messages, maxTokens)
+}
+
+func callGroqFallback(messages []map[string]any, maxTokens int) (string, error) {
+	return callGroqWithModel("llama-3.3-70b-versatile", messages, maxTokens)
+}
+
+func callGroqWithModel(model string, messages []map[string]any, maxTokens int) (string, error) {
 	reqBody := map[string]any{
-		"model":       "llama-3.1-8b-instant",
+		"model":       model,
 		"messages":    messages,
 		"temperature": 0,
 		"max_tokens":  maxTokens,
@@ -107,7 +117,8 @@ func fetchAIExplanation(_ string, word *models.Word) (*AIExplanation, error) {
 		userPrompt += fmt.Sprintf("用户遇到该词的语境：%s\n", word.Context)
 	}
 	userPrompt += `
-请按以下 JSON 结构返回（不加代码块标记，直接输出 JSON）：
+请按以下 JSON 结构返回（不加代码块标记，直接输出 JSON）。
+重要：所有字符串值内部不得使用英文双引号，需要引用时改用「」或()代替。
 {
   "primary_meaning": "最核心的中文释义（10字以内）",
   "part_of_speech": "adj/n/v/adv/prep（英文缩写）",
@@ -148,10 +159,32 @@ func fetchAIExplanation(_ string, word *models.Word) (*AIExplanation, error) {
 	}
 
 	var exp AIExplanation
-	if err := json.Unmarshal([]byte(raw), &exp); err != nil {
-		return nil, fmt.Errorf("解析 AI JSON 失败: %w\n原始内容: %s", err, raw)
+	if err := json.Unmarshal([]byte(repairJSON(raw)), &exp); err != nil {
+		// 小模型解析失败，用 70b 重试一次
+		slog.Warn("小模型 JSON 解析失败，切换 70b 重试", "word", word.Word)
+		raw, err = callGroqFallback(messages, 4096)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(repairJSON(raw)), &exp); err != nil {
+			return nil, fmt.Errorf("解析 AI JSON 失败: %w\n原始内容: %s", err, raw)
+		}
 	}
 	return &exp, nil
+}
+
+// repairJSON 处理 AI 常见的 JSON 格式问题
+func repairJSON(s string) string {
+	// 去掉 markdown 代码块
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		if idx := strings.Index(s, "\n"); idx != -1 {
+			s = s[idx+1:]
+		}
+		s = strings.TrimSuffix(s, "```")
+		s = strings.TrimSpace(s)
+	}
+	return s
 }
 
 // EnsureAI 确保单词有 AI 解释（缓存命中直接返回，否则调用 API）

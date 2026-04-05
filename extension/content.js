@@ -42,7 +42,7 @@
     clearTimeout(hideTimer);
     const b = createBubble();
     b.className = '';
-    b.innerHTML = `<span class="inkwell-icon">✏️</span> 加入 Inkwell：<strong>${word}</strong>`;
+    b.innerHTML = `<span class="inkwell-icon">✏️</span> 查询：<strong>${word}</strong>`;
     b.style.left = x + 'px';
     b.style.top = (y - 44) + 'px';
 
@@ -59,7 +59,7 @@
   async function addWord(word) {
     const context = getContext();
     const b = createBubble();
-    b.innerHTML = `<span class="inkwell-icon">⏳</span> 添加中…`;
+    b.innerHTML = `<span class="inkwell-icon">⏳</span> 查询中…`;
     b.onclick = null;
 
     try {
@@ -69,22 +69,23 @@
         body: JSON.stringify({ word, context }),
       });
 
-      if (res.status === 201) {
+      const data = await res.json();
+
+      if (res.status === 201 || res.status === 409) {
         b.className = 'success';
-        b.innerHTML = `<span class="inkwell-icon">✓</span> 已添加：<strong>${word}</strong>`;
-      } else if (res.status === 409) {
-        b.className = 'duplicate';
-        b.innerHTML = `<span class="inkwell-icon">·</span> 已在词库中`;
+        b.innerHTML = `<span class="inkwell-icon">✓</span> 打开 Inkwell…`;
+        window.open(`http://localhost:9090/words/${data.id}`, '_blank');
+        hideTimer = setTimeout(hideBubble, 800);
       } else {
         b.className = 'error';
         b.innerHTML = `<span class="inkwell-icon">✕</span> 添加失败`;
+        hideTimer = setTimeout(hideBubble, 2000);
       }
     } catch {
       b.className = 'error';
       b.innerHTML = `<span class="inkwell-icon">✕</span> 无法连接 Inkwell`;
+      hideTimer = setTimeout(hideBubble, 2000);
     }
-
-    hideTimer = setTimeout(hideBubble, 2000);
   }
 
   document.addEventListener('mouseup', e => {
@@ -111,4 +112,56 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') hideBubble();
   });
+
+  // 右键菜单触发（来自 background.js）
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type !== 'inkwell-add') return;
+    showToast(msg.text);
+    addWordToast(msg.text);
+  });
+
+  // Toast：右键场景无法定位气泡，改为右下角固定提示
+  let toast = null;
+  let toastTimer = null;
+
+  function showToast(text) {
+    clearTimeout(toastTimer);
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'inkwell-toast';
+      document.body.appendChild(toast);
+    }
+    toast.className = '';
+    toast.innerHTML = `<span>⏳</span> 添加中：<strong>${text}</strong>`;
+  }
+
+  function hideToast() {
+    if (toast) { toast.remove(); toast = null; }
+  }
+
+  async function addWordToast(text) {
+    const context = getContext();
+    try {
+      const res = await fetch(INKWELL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: text, context }),
+      });
+      const data = await res.json();
+      if (res.status === 201 || res.status === 409) {
+        toast.className = 'success';
+        toast.innerHTML = `<span>✓</span> 打开 Inkwell…`;
+        window.open(`http://localhost:9090/words/${data.id}`, '_blank');
+        toastTimer = setTimeout(hideToast, 800);
+      } else {
+        toast.className = 'error';
+        toast.innerHTML = `<span>✕</span> 添加失败`;
+        toastTimer = setTimeout(hideToast, 2500);
+      }
+    } catch {
+      toast.className = 'error';
+      toast.innerHTML = `<span>✕</span> 无法连接 Inkwell`;
+      toastTimer = setTimeout(hideToast, 2500);
+    }
+  }
 })();

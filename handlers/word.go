@@ -91,7 +91,7 @@ func (h *WordHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if isJSON {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{"error": "already_exists", "word": word})
+			json.NewEncoder(w).Encode(map[string]any{"error": "already_exists", "word": word, "id": existing.ID})
 			return
 		}
 		w.WriteHeader(http.StatusUnprocessableEntity)

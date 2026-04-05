@@ -3,7 +3,10 @@
   "name": "Inkwell",
   "version": "1.0",
   "description": "选中单词，一键加入 Inkwell 词库",
-  "permissions": ["storage"],
+  "permissions": ["storage", "contextMenus"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": ["http://localhost:9090/*"],
   "content_scripts": [
     {
