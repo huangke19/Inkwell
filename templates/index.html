@@ -1,16 +1,16 @@
 {{define "content"}}
 <div class="page-header">
-  <h1>单词库</h1>
+  <h1>📚 单词库</h1>
   <div class="stats">
     <span>共 <strong>{{.Total}}</strong> 个词</span>
-    <span>已掌握 <strong>{{.Mastered}}</strong> 个</span>
-    {{if gt .Due 0}}<span class="badge-due">待复习 {{.Due}} 个</span>{{end}}
+    <span>已掌握 <strong>{{.Mastered}}</strong></span>
+    {{if gt .Due 0}}<span class="badge-due">🔔 待复习 {{.Due}}</span>{{end}}
   </div>
 </div>
 
 <div class="search-bar">
   <input type="search" name="q" value="{{.Query}}"
-    placeholder="搜索单词..."
+    placeholder="搜索单词或释义..."
     hx-get="{{.BaseURL}}"
     hx-trigger="keyup changed delay:300ms, search"
     hx-target="#{{.TargetID}}"
@@ -23,7 +23,7 @@
     hx-push-url="true"
     hx-include="closest .search-bar">
     <option value="rating" {{if eq .Sort "rating"}}selected{{end}}>按评级</option>
-    <option value="created" {{if eq .Sort "created"}}selected{{end}}>按添加时间</option>
+    <option value="created" {{if eq .Sort "created"}}selected{{end}}>按时间</option>
   </select>
 </div>
 

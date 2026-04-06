@@ -1,7 +1,7 @@
 {{define "review_result"}}
 <div class="result-card {{if .Correct}}correct{{else}}incorrect{{end}}">
   {{if .Correct}}
-  <div class="result-label correct">正确！</div>
+  <div class="result-label correct">回答正确</div>
   {{else}}
   <div class="result-label incorrect">再接再厉</div>
   {{end}}
@@ -19,6 +19,6 @@
   <button class="btn-primary"
     hx-get="/review/next"
     hx-target="#quiz-area"
-    hx-swap="innerHTML">下一个</button>
+    hx-swap="innerHTML">继续下一个 →</button>
 </div>
 {{end}}

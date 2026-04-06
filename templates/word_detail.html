@@ -9,7 +9,7 @@
       {{end}}
       {{end}}
       {{if .Word.Context}}
-      <p class="context-quote">「{{.Word.Context}}」</p>
+      <p class="context-quote">{{.Word.Context}}</p>
       <p id="context-translation-slot" class="context-translation-line"></p>
       {{end}}
     </div>
@@ -30,19 +30,19 @@
     {{if lt .Word.IntervalDays 30}}
     <button class="btn-mastered"
       hx-post="/words/{{.Word.ID}}/master"
-      hx-confirm="将「{{.Word.Word}}」直接标记为已掌握？">标记为已掌握</button>
+      hx-confirm="将「{{.Word.Word}}」直接标记为已掌握？">✓ 标记已掌握</button>
     {{else}}
-    <span class="mastered-badge">已掌握</span>
+    <span class="mastered-badge">✓ 已掌握</span>
     {{end}}
     <button class="btn-secondary"
       hx-get="/words/{{.Word.ID}}/ai?refresh=1"
       hx-target="#ai-section"
       hx-swap="innerHTML"
-      hx-confirm="重新生成会消耗 API 用量，确认？">重新生成解释</button>
+      hx-confirm="重新生成会消耗 API 用量，确认？">↻ 重新生成</button>
     <button class="btn-danger"
       hx-delete="/words/{{.Word.ID}}"
       hx-confirm="确认删除「{{.Word.Word}}」？"
-      hx-on::after-request="window.location='/'">删除单词</button>
+      hx-on::after-request="window.location='/'">✗ 删除</button>
   </div>
 </div>
 {{end}}

@@ -1,15 +1,15 @@
 {{define "content"}}
 <div class="form-page">
-  <h1>添加单词</h1>
+  <h1>✏️ 添加单词</h1>
   <form hx-post="/words" hx-target="#form-feedback" hx-swap="innerHTML">
     <div class="field">
       <label for="word">单词 <span class="required">*</span></label>
       <input type="text" id="word" name="word" placeholder="例如：ubiquitous" autofocus required>
     </div>
     <div class="field">
-      <label for="context">遇到这个词的句子（选填）</label>
+      <label for="context">上下文句子（选填）</label>
       <textarea id="context" name="context" rows="3"
-        placeholder="粘贴你在阅读时遇到这个词的原句，有助于 AI 生成更贴切的解释"></textarea>
+        placeholder="粘贴遇到这个词的原句，AI 会根据上下文生成更精准的解释"></textarea>
     </div>
     <div id="form-feedback"></div>
     <button type="submit" class="btn-primary">添加并生成解释</button>
