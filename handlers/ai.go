@@ -238,7 +238,7 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 		w.AIGeneratedAt = time.Now().Unix()
 	}
 
-	if strings.TrimSpace(w.Context) != "" && strings.TrimSpace(exp.ContextTranslation) == "" {
+	if strings.TrimSpace(w.Context) != "" && needsContextTranslation(exp.ContextTranslation, w.Context) {
 		if translation, err := translateContext(apiKey, w.Word, w.Context); err == nil && translation != "" {
 			exp.ContextTranslation = translation
 			if updatedMeaning, err := mergeContextTranslation(w.AIMeaning, translation); err == nil {
@@ -246,6 +246,8 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 					w.AIMeaning = updatedMeaning
 				}
 			}
+		} else if err != nil {
+			slog.Warn("context translation failed", "word", w.Word, "err", err)
 		}
 	}
 
@@ -284,14 +286,39 @@ type aiMeaningPayload struct {
 	Definitions        []Definition `json:"definitions"`
 }
 
+// needsContextTranslation returns true if the stored translation is absent, wrong, or truncated.
+func needsContextTranslation(translation, context string) bool {
+	t := strings.TrimSpace(translation)
+	if t == "" {
+		return true
+	}
+	// AI returned the prompt-template placeholder text literally
+	if strings.Contains(t, "如果提供了原始语境句子") {
+		return true
+	}
+	// Translation looks truncated: context is long but translation is very short
+	contextRunes := len([]rune(context))
+	translationRunes := len([]rune(t))
+	if contextRunes > 50 && translationRunes < contextRunes/8 {
+		return true
+	}
+	return false
+}
+
 func translateContext(_ string, word, context string) (string, error) {
-	prompt := fmt.Sprintf(`请将下面的英文句子翻译成自然、准确的中文，只返回译文，不要解释。
+	prompt := fmt.Sprintf(`请将下面的英文句子完整翻译成自然、准确的中文，只返回译文，不要解释，不要摘要，不要省略任何信息。
 
 单词：%s
 句子：%s`, word, context)
-	raw, err := callGroq([]map[string]any{{"role": "user", "content": prompt}}, 128)
+	messages := []map[string]any{{"role": "user", "content": prompt}}
+	// Use the more capable 70b model for translation quality
+	raw, err := callGroqFallback(messages, 512)
 	if err != nil {
-		return "", err
+		// Fall back to 8b if 70b fails
+		raw, err = callGroq(messages, 512)
+		if err != nil {
+			return "", err
+		}
 	}
 	return cleanTranslation(raw), nil
 }
