@@ -484,19 +484,73 @@ td a:hover { color: var(--ink); text-decoration: underline; }
 
 /* --- Responsive --- */
 @media (max-width: 640px) {
-  main { padding: 1.25rem 1rem; }
-  .page-header { flex-direction: column; gap: 0.5rem; }
-  .detail-header { flex-direction: column; }
-  .quiz-word { font-size: 2rem; }
-  .quiz-card { padding: 1.75rem 1.25rem; }
-  .search-bar { flex-direction: column; }
-  .search-bar select { width: 100%; }
-  table { font-size: 0.82rem; }
-  th, td { padding: 0.55rem 0.6rem; }
-  .detail-header h1 { font-size: 1.75rem; }
-  .ai-card { padding: 1.25rem; }
-  .detail-actions { flex-direction: column; }
+  main { padding: 1rem 0.85rem 1.5rem; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; margin-bottom: 1rem; }
+  .page-header h1 { font-size: 1.35rem; }
+  .stats { flex-wrap: wrap; gap: 0.4rem 0.6rem; line-height: 1.4; }
+  .detail-header { flex-direction: column; margin-bottom: 1.25rem; padding-bottom: 1rem; }
+  .detail-header h1 { font-size: 1.6rem; }
+  .detail-meta { text-align: left; width: 100%; }
+  .detail-actions { flex-direction: column; gap: 0.5rem; }
   .detail-actions button, .detail-actions span { width: 100%; justify-content: center; }
+  .search-bar { flex-direction: column; align-items: stretch; gap: 0.55rem; }
+  .search-bar input[type="search"], .search-bar select { width: 100%; }
+  .search-bar select { min-height: 42px; }
+  table { display: table; width: 100%; min-width: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+  thead { display: table-header-group; }
+  tbody { display: table-row-group; }
+  tr { display: table-row; }
+  td, th { padding: 0.55rem 0.6rem; font-size: 0.78rem; }
+  th { white-space: nowrap; }
+  td { vertical-align: top; }
+  td::before { content: none; }
+  td > * { max-width: 100%; }
+  td > a { word-break: break-word; }
+  th:nth-child(n+4), td:nth-child(n+4) { display: none; }
+  .meaning { max-width: 11rem; line-height: 1.5; }
+  .review-time { white-space: normal; }
+  .row-actions {
+    justify-content: flex-end; flex-wrap: wrap; gap: 0.35rem;
+  }
+  .row-actions > * { white-space: nowrap; }
+  .row-actions .btn-sm { padding: 0.3rem 0.7rem; }
+  .pagination {
+    align-items: stretch; justify-content: flex-start; flex-direction: column;
+    padding: 0.85rem 0 0; gap: 0.6rem;
+  }
+  .pagination-actions { width: 100%; }
+  .pagination-link { flex: 1; }
+  .pagination-jump { width: 100%; justify-content: space-between; }
+  .pagination-jump input[type="number"] { width: 4.2rem; }
+  .empty-state { padding: 3rem 1rem; }
+  .form-page { max-width: none; }
+  .quiz-word { font-size: 2rem; }
+  .quiz-card, .reading-card { padding: 1.4rem 1rem; }
+  .quiz-actions { flex-direction: column; gap: 0.55rem; }
+  .quiz-actions button { width: 100%; }
+  .quiz-context { margin-bottom: 1.2rem; }
+  .reading-header { flex-direction: column; align-items: flex-start; gap: 0.65rem; }
+  .reading-word { font-size: 1.4rem; }
+  .ai-card { padding: 1.1rem; }
+  .ai-header { flex-direction: column; align-items: flex-start; }
+  .ai-header-right { width: 100%; justify-content: space-between; }
+  .example { padding: 0.7rem; }
+  .result-card { padding: 1.1rem; }
+  .done-state { padding: 3.2rem 1rem; }
+}
+
+@media (max-width: 420px) {
+  nav { height: 56px; }
+  .nav-brand { font-size: 1.1rem; }
+  .page-header h1 { font-size: 1.2rem; }
+  .stats { font-size: 0.75rem; }
+  .quiz-card { padding: 1.2rem 0.9rem; }
+  .quiz-word { font-size: 1.8rem; }
+  .detail-header h1 { font-size: 1.45rem; }
+  td { padding: 0.5rem 0.55rem; }
+  .meaning { max-width: 9rem; }
+  .pagination-jump { flex-wrap: wrap; }
+  .pagination-jump span { width: 100%; }
 }
 
 /* --- AI Error --- */

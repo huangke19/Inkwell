@@ -74,13 +74,13 @@
   <tbody>
     {{range .Words}}
     <tr>
-      <td>
+      <td data-label="单词">
         <a href="/words/{{.ID}}">{{.Word}}</a>
       </td>
-      <td>{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
-      <td class="meaning">{{primaryMeaning .AIMeaning}}</td>
-      <td class="review-time">{{.Repetitions}} 次</td>
-      <td class="review-time">{{reviewTime .NextReviewAt}}</td>
+      <td data-label="评级">{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
+      <td class="meaning" data-label="核心释义">{{primaryMeaning .AIMeaning}}</td>
+      <td class="review-time" data-label="已复习">{{.Repetitions}} 次</td>
+      <td class="review-time" data-label="下次复习">{{reviewTime .NextReviewAt}}</td>
     </tr>
     {{end}}
   </tbody>
