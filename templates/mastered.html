@@ -10,14 +10,53 @@
 <div class="search-bar">
   <input type="search" name="q" value="{{.Query}}"
     placeholder="搜索单词..."
-    hx-get="/mastered"
+    hx-get="{{.BaseURL}}"
     hx-trigger="keyup changed delay:300ms, search"
-    hx-target="#mastered-list"
+    hx-target="#{{.TargetID}}"
+    hx-push-url="true"
+    hx-include="closest .search-bar">
+  <select name="sort"
+    hx-get="{{.BaseURL}}"
+    hx-trigger="change"
+    hx-target="#{{.TargetID}}"
+    hx-push-url="true"
+    hx-include="closest .search-bar">
+    <option value="rating" {{if eq .Sort "rating"}}selected{{end}}>按评级</option>
+    <option value="created" {{if eq .Sort "created"}}selected{{end}}>按添加时间</option>
+  </select>
 </div>
 
 <div id="mastered-list">
-  {{template "mastered_list_rows" .}}
+  {{template "mastered_list" .}}
 </div>
+{{end}}
+
+{{define "mastered_list"}}
+{{template "mastered_list_rows" .}}
+{{if gt .TotalPages 1}}
+<div class="pagination">
+  <div class="pagination-info">第 {{.Page}} / {{.TotalPages}} 页</div>
+  <div class="pagination-actions">
+    {{if .HasPrev}}
+    <a class="pagination-link" href="{{.PrevURL}}" hx-get="{{.PrevURL}}" hx-target="#mastered-list" hx-push-url="true">上一页</a>
+    {{else}}
+    <span class="pagination-link disabled">上一页</span>
+    {{end}}
+    {{if .HasNext}}
+    <a class="pagination-link" href="{{.NextURL}}" hx-get="{{.NextURL}}" hx-target="#mastered-list" hx-push-url="true">下一页</a>
+    {{else}}
+    <span class="pagination-link disabled">下一页</span>
+    {{end}}
+  </div>
+  <form class="pagination-jump" hx-get="{{.BaseURL}}" hx-target="#{{.TargetID}}" hx-push-url="true">
+    <span>跳到</span>
+    <input type="number" name="page" min="1" max="{{.TotalPages}}" value="{{.Page}}">
+    <input type="hidden" name="q" value="{{.Query}}">
+    <input type="hidden" name="sort" value="{{.Sort}}">
+    <button type="submit" class="pagination-link">跳转</button>
+  </form>
+</div>
+{{end}}
 {{end}}
 
 {{define "mastered_list_rows"}}
@@ -35,7 +74,9 @@
   <tbody>
     {{range .Words}}
     <tr>
-      <td><a href="/words/{{.ID}}">{{.Word}}</a></td>
+      <td>
+        <a href="/words/{{.ID}}">{{.Word}}</a>
+      </td>
       <td>{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
       <td class="meaning">{{primaryMeaning .AIMeaning}}</td>
       <td class="review-time">{{.Repetitions}} 次</td>

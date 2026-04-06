@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Inkwell",
   "version": "1.0",
-  "description": "选中单词，一键加入 Inkwell 词库",
+  "description": "选中单词，一键加入 Inkwell 词库，并自动记录原文来源",
   "permissions": ["storage", "contextMenus"],
   "background": {
     "service_worker": "background.js"

@@ -3,8 +3,14 @@
   <div class="detail-header">
     <div>
       <h1>{{.Word.Word}}</h1>
+      {{with wordForm .Word.Word}}
+      {{if .Changed}}
+      <p class="word-form">原形：{{.Base}}{{if .Kind}}（{{.Kind}}）{{end}}</p>
+      {{end}}
+      {{end}}
       {{if .Word.Context}}
       <p class="context-quote">「{{.Word.Context}}」</p>
+      <p id="context-translation-slot" class="context-translation-line"></p>
       {{end}}
     </div>
     <div class="detail-meta">

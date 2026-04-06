@@ -10,6 +10,8 @@ type Word struct {
 	ID            int64
 	Word          string
 	Context       string
+	SourceURL     string
+	SourceTitle   string
 	AIMeaning     string // JSON
 	AIExamples    string // JSON
 	AIScenarios   string // JSON
@@ -30,16 +32,17 @@ func (w *Word) AIReady() bool {
 }
 
 const selectCols = `id,word,context,
+	COALESCE(source_url,''),COALESCE(source_title,''),
 	COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
 	COALESCE(ai_generated_at,0),
 	interval_days,next_review_at,repetitions,
 	COALESCE(rating_cefr,''),COALESCE(rating_freq,''),COALESCE(rating_rec,''),
 	created_at,updated_at`
 
-func CreateWord(db *sql.DB, word, context string) (*Word, error) {
+func CreateWord(db *sql.DB, word, context, sourceURL, sourceTitle string) (*Word, error) {
 	res, err := db.Exec(
-		`INSERT INTO words (word, context) VALUES (?, ?)`,
-		word, context,
+		`INSERT INTO words (word, context, source_url, source_title) VALUES (?, ?, ?, ?)`,
+		word, context, sourceURL, sourceTitle,
 	)
 	if err != nil {
 		return nil, err
@@ -59,16 +62,27 @@ func GetWordByText(db *sql.DB, word string) (*Word, error) {
 }
 
 const freqOrder = `CASE rating_freq WHEN '高频' THEN 0 WHEN '中频' THEN 1 WHEN '低频' THEN 2 ELSE 3 END`
+const ratingRecOrder = `CASE rating_rec WHEN '强烈推荐' THEN 0 WHEN '建议掌握' THEN 1 WHEN '选择性记' THEN 2 WHEN '可以跳过' THEN 3 ELSE 4 END`
+const cefrOrder = `CASE rating_cefr WHEN 'A1' THEN 0 WHEN 'A2' THEN 1 WHEN 'B1' THEN 2 WHEN 'B2' THEN 3 WHEN 'C1' THEN 4 WHEN 'C2' THEN 5 ELSE 6 END`
 const dueFirst = `CASE WHEN next_review_at <= unixepoch() THEN 0 ELSE 1 END`
 
-func ListWords(db *sql.DB, q string) ([]*Word, error) {
+func wordOrder(sort string) string {
+	switch sort {
+	case "created":
+		return `created_at DESC, ` + ratingRecOrder + ` ASC, ` + freqOrder + ` ASC, ` + cefrOrder + ` ASC, word ASC`
+	default:
+		return ratingRecOrder + ` ASC, ` + freqOrder + ` ASC, ` + cefrOrder + ` ASC, ` + dueFirst + ` ASC, created_at DESC, word ASC`
+	}
+}
+
+func ListWords(db *sql.DB, q, sort string, limit, offset int) ([]*Word, error) {
 	var rows *sql.Rows
 	var err error
-	order := freqOrder + ` ASC, ` + dueFirst + ` ASC, created_at DESC`
+	order := wordOrder(sort)
 	if q != "" {
-		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE word LIKE ? ORDER BY `+order, "%"+q+"%")
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE word LIKE ? ORDER BY `+order+` LIMIT ? OFFSET ?`, "%"+q+"%", limit, offset)
 	} else {
-		rows, err = db.Query(`SELECT `+selectCols+` FROM words ORDER BY ` + order)
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words ORDER BY `+order+` LIMIT ? OFFSET ?`, limit, offset)
 	}
 	if err != nil {
 		return nil, err
@@ -78,7 +92,7 @@ func ListWords(db *sql.DB, q string) ([]*Word, error) {
 	var words []*Word
 	for rows.Next() {
 		w := &Word{}
-		if err := rows.Scan(&w.ID, &w.Word, &w.Context,
+		if err := rows.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
 			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
@@ -151,14 +165,25 @@ func CountWords(db *sql.DB) (total, mastered int, err error) {
 	return
 }
 
-func ListUnmastered(db *sql.DB, q string) ([]*Word, error) {
+func CountWordsFiltered(db *sql.DB, q string) (int, error) {
+	var total int
+	var err error
+	if q != "" {
+		err = db.QueryRow(`SELECT COUNT(*) FROM words WHERE word LIKE ?`, "%"+q+"%").Scan(&total)
+		return total, err
+	}
+	err = db.QueryRow(`SELECT COUNT(*) FROM words`).Scan(&total)
+	return total, err
+}
+
+func ListUnmastered(db *sql.DB, q, sort string, limit, offset int) ([]*Word, error) {
 	var rows *sql.Rows
 	var err error
-	order := freqOrder + ` ASC, ` + dueFirst + ` ASC, created_at DESC`
+	order := wordOrder(sort)
 	if q != "" {
-		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days < 30 AND word LIKE ? ORDER BY `+order, "%"+q+"%")
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days < 30 AND word LIKE ? ORDER BY `+order+` LIMIT ? OFFSET ?`, "%"+q+"%", limit, offset)
 	} else {
-		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days < 30 ORDER BY `+order)
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days < 30 ORDER BY `+order+` LIMIT ? OFFSET ?`, limit, offset)
 	}
 	if err != nil {
 		return nil, err
@@ -168,7 +193,7 @@ func ListUnmastered(db *sql.DB, q string) ([]*Word, error) {
 	var words []*Word
 	for rows.Next() {
 		w := &Word{}
-		if err := rows.Scan(&w.ID, &w.Word, &w.Context,
+		if err := rows.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
 			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
@@ -181,13 +206,14 @@ func ListUnmastered(db *sql.DB, q string) ([]*Word, error) {
 	return words, rows.Err()
 }
 
-func ListMastered(db *sql.DB, q string) ([]*Word, error) {
+func ListMastered(db *sql.DB, q, sort string, limit, offset int) ([]*Word, error) {
 	var rows *sql.Rows
 	var err error
+	order := wordOrder(sort)
 	if q != "" {
-		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days >= 30 AND word LIKE ? ORDER BY `+freqOrder+` ASC, word ASC`, "%"+q+"%")
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days >= 30 AND word LIKE ? ORDER BY `+order+` LIMIT ? OFFSET ?`, "%"+q+"%", limit, offset)
 	} else {
-		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days >= 30 ORDER BY `+freqOrder+` ASC, word ASC`)
+		rows, err = db.Query(`SELECT `+selectCols+` FROM words WHERE interval_days >= 30 ORDER BY `+order+` LIMIT ? OFFSET ?`, limit, offset)
 	}
 	if err != nil {
 		return nil, err
@@ -197,7 +223,7 @@ func ListMastered(db *sql.DB, q string) ([]*Word, error) {
 	var words []*Word
 	for rows.Next() {
 		w := &Word{}
-		if err := rows.Scan(&w.ID, &w.Word, &w.Context,
+		if err := rows.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
 			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
@@ -208,6 +234,28 @@ func ListMastered(db *sql.DB, q string) ([]*Word, error) {
 		words = append(words, w)
 	}
 	return words, rows.Err()
+}
+
+func CountUnmasteredWordsFiltered(db *sql.DB, q string) (int, error) {
+	var total int
+	var err error
+	if q != "" {
+		err = db.QueryRow(`SELECT COUNT(*) FROM words WHERE interval_days < 30 AND word LIKE ?`, "%"+q+"%").Scan(&total)
+		return total, err
+	}
+	err = db.QueryRow(`SELECT COUNT(*) FROM words WHERE interval_days < 30`).Scan(&total)
+	return total, err
+}
+
+func CountMasteredWordsFiltered(db *sql.DB, q string) (int, error) {
+	var total int
+	var err error
+	if q != "" {
+		err = db.QueryRow(`SELECT COUNT(*) FROM words WHERE interval_days >= 30 AND word LIKE ?`, "%"+q+"%").Scan(&total)
+		return total, err
+	}
+	err = db.QueryRow(`SELECT COUNT(*) FROM words WHERE interval_days >= 30`).Scan(&total)
+	return total, err
 }
 
 func FormatDays(days int) string {
@@ -216,7 +264,7 @@ func FormatDays(days int) string {
 
 func scanWord(row *sql.Row) (*Word, error) {
 	w := &Word{}
-	err := row.Scan(&w.ID, &w.Word, &w.Context,
+	err := row.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
 		&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
 		&w.AIGeneratedAt,
 		&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,

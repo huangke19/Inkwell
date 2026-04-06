@@ -13,7 +13,9 @@
   <tbody>
     {{range .Words}}
     <tr id="word-row-{{.ID}}">
-      <td><a href="/words/{{.ID}}">{{.Word}}</a></td>
+      <td>
+        <a href="/words/{{.ID}}">{{.Word}}</a>
+      </td>
       <td>{{if .RatingCEFR}}<span class="rating-badge rec-{{.RatingRec}}">{{.RatingCEFR}} · {{.RatingFreq}} · {{.RatingRec}}</span>{{else}}<span class="rating-pending">—</span>{{end}}</td>
       <td class="meaning">{{primaryMeaning .AIMeaning}}</td>
       <td class="review-time">{{reviewTime .NextReviewAt}}</td>

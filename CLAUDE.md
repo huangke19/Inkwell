@@ -8,8 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # 开发启动（需要 GROQ_API_KEY 环境变量）
 go run main.go
 
-# 指定端口（默认 8080）
-PORT=8081 go run main.go
+# 服务固定运行在 9090 端口
+PORT=9090 go run main.go
 
 # 构建二进制
 go build -o inkwell .
@@ -18,7 +18,7 @@ go build -o inkwell .
 环境变量：
 - `GROQ_API_KEY`（必填）— Groq API 密钥
 - `DB_PATH`（可选）— SQLite 文件路径，默认 `ewords.db`
-- `PORT`（可选）— 监听端口，默认 `8080`
+- `PORT`（可选）— 监听端口，固定为 `9090`
 
 ## 架构概述
 

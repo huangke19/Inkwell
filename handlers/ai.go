@@ -17,15 +17,16 @@ import (
 )
 
 type AIExplanation struct {
-	PrimaryMeaning string       `json:"primary_meaning"`
-	PartOfSpeech   string       `json:"part_of_speech"`
-	Phonetic       string       `json:"phonetic"`
-	EnglishDef     string       `json:"english_def"`
-	Definitions    []Definition `json:"definitions"`
-	Examples       []Example    `json:"examples"`
-	Scenarios      []string     `json:"scenarios"`
-	MemoryTip      string       `json:"memory_tip"`
-	CEFRLevel      string       `json:"cefr_level"`
+	PrimaryMeaning     string       `json:"primary_meaning"`
+	PartOfSpeech       string       `json:"part_of_speech"`
+	Phonetic           string       `json:"phonetic"`
+	EnglishDef         string       `json:"english_def"`
+	ContextTranslation string       `json:"context_translation"`
+	Definitions        []Definition `json:"definitions"`
+	Examples           []Example    `json:"examples"`
+	Scenarios          []string     `json:"scenarios"`
+	MemoryTip          string       `json:"memory_tip"`
+	CEFRLevel          string       `json:"cefr_level"`
 }
 
 type Definition struct {
@@ -112,7 +113,12 @@ func callGroqWithModel(model string, messages []map[string]any, maxTokens int) (
 }
 
 func fetchAIExplanation(_ string, word *models.Word) (*AIExplanation, error) {
+	form := freq.Normalize(word.Word)
 	userPrompt := fmt.Sprintf("单词：%s\n", word.Word)
+	if form.Changed {
+		userPrompt += fmt.Sprintf("推测原形：%s\n词形说明：%s\n", form.Base, form.Kind)
+		userPrompt += "请优先解释原形词条，并简要说明当前词形在原文中的语法作用。\n"
+	}
 	if word.Context != "" {
 		userPrompt += fmt.Sprintf("用户遇到该词的语境：%s\n", word.Context)
 	}
@@ -123,7 +129,8 @@ func fetchAIExplanation(_ string, word *models.Word) (*AIExplanation, error) {
   "primary_meaning": "最核心的中文释义（10字以内）",
   "part_of_speech": "adj/n/v/adv/prep（英文缩写）",
   "phonetic": "/IPA音标，如 /ʌbˈɪkwɪtəs/，使用美式发音/",
-  "english_def": "详尽的全英文释义，像英英词典一样解释这个词的含义、用法、语感、与近义词的区别，以及在不同语境下的细微差异。至少150个英文单词，越详细越好。",
+	"english_def": "简洁的全英文释义，控制在60-90个英文单词左右，只保留核心含义、最常见用法，以及与近义词的关键区别，不要写成百科介绍。",
+	"context_translation": "如果提供了原始语境句子，这里填自然中文翻译；没有语境则留空",
   "definitions": [
     {"zh": "中文释义1", "note": "适用场景或语体（可选）"},
     {"zh": "中文释义2", "note": ""}
@@ -207,11 +214,12 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 		examplesJSON, _ := json.Marshal(exp.Examples)
 		scenariosJSON, _ := json.Marshal(exp.Scenarios)
 		meaningJSON, _ := json.Marshal(map[string]any{
-			"primary_meaning": exp.PrimaryMeaning,
-			"part_of_speech":  exp.PartOfSpeech,
-			"phonetic":        exp.Phonetic,
-			"english_def":     exp.EnglishDef,
-			"definitions":     exp.Definitions,
+			"primary_meaning":     exp.PrimaryMeaning,
+			"part_of_speech":      exp.PartOfSpeech,
+			"phonetic":            exp.Phonetic,
+			"english_def":         exp.EnglishDef,
+			"context_translation": exp.ContextTranslation,
+			"definitions":         exp.Definitions,
 		})
 
 		if err := models.UpdateWordAI(db, w.ID,
@@ -230,10 +238,24 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 		w.AIGeneratedAt = time.Now().Unix()
 	}
 
+	if strings.TrimSpace(w.Context) != "" && strings.TrimSpace(exp.ContextTranslation) == "" {
+		if translation, err := translateContext(apiKey, w.Word, w.Context); err == nil && translation != "" {
+			exp.ContextTranslation = translation
+			if updatedMeaning, err := mergeContextTranslation(w.AIMeaning, translation); err == nil {
+				if err := models.UpdateWordAI(db, w.ID, updatedMeaning, w.AIExamples, w.AIScenarios, w.AIMemoryTip); err == nil {
+					w.AIMeaning = updatedMeaning
+				}
+			}
+		}
+	}
+
 	// 评级：优先查本地词表，其次用 AI 返回的 CEFR
 	if w.RatingCEFR == "" {
 		var rating freq.Rating
-		if r, ok := freq.Lookup(w.Word); ok {
+		form := freq.Normalize(w.Word)
+		if r, ok := freq.Lookup(form.Base); ok {
+			rating = r
+		} else if r, ok := freq.Lookup(w.Word); ok {
 			rating = r
 		} else {
 			rating = freq.CEFRToRating(exp.CEFRLevel)
@@ -251,6 +273,46 @@ type JudgeResult struct {
 	Correct  bool   `json:"correct"`
 	TooVague bool   `json:"too_vague"`
 	Feedback string `json:"feedback"`
+}
+
+type aiMeaningPayload struct {
+	PrimaryMeaning     string       `json:"primary_meaning"`
+	PartOfSpeech       string       `json:"part_of_speech"`
+	Phonetic           string       `json:"phonetic"`
+	EnglishDef         string       `json:"english_def"`
+	ContextTranslation string       `json:"context_translation"`
+	Definitions        []Definition `json:"definitions"`
+}
+
+func translateContext(_ string, word, context string) (string, error) {
+	prompt := fmt.Sprintf(`请将下面的英文句子翻译成自然、准确的中文，只返回译文，不要解释。
+
+单词：%s
+句子：%s`, word, context)
+	raw, err := callGroq([]map[string]any{{"role": "user", "content": prompt}}, 128)
+	if err != nil {
+		return "", err
+	}
+	return cleanTranslation(raw), nil
+}
+
+func cleanTranslation(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, "`\"“”‘’")
+	return strings.TrimSpace(s)
+}
+
+func mergeContextTranslation(rawMeaning, translation string) (string, error) {
+	var meaning aiMeaningPayload
+	if err := json.Unmarshal([]byte(rawMeaning), &meaning); err != nil {
+		return "", err
+	}
+	meaning.ContextTranslation = translation
+	updated, err := json.Marshal(meaning)
+	if err != nil {
+		return "", err
+	}
+	return string(updated), nil
 }
 
 // JudgeEnglishExplanation 调用 AI 判断用户的英文解释是否正确
@@ -287,13 +349,7 @@ func JudgeEnglishExplanation(_ string, word, explanation, englishDef string) (*J
 }
 
 func parseAI(w *models.Word) (*AIExplanation, error) {
-	var meaning struct {
-		PrimaryMeaning string       `json:"primary_meaning"`
-		PartOfSpeech   string       `json:"part_of_speech"`
-		Phonetic       string       `json:"phonetic"`
-		EnglishDef     string       `json:"english_def"`
-		Definitions    []Definition `json:"definitions"`
-	}
+	var meaning aiMeaningPayload
 	if err := json.Unmarshal([]byte(w.AIMeaning), &meaning); err != nil {
 		return nil, err
 	}
@@ -305,13 +361,14 @@ func parseAI(w *models.Word) (*AIExplanation, error) {
 	json.Unmarshal([]byte(w.AIScenarios), &scenarios)
 
 	return &AIExplanation{
-		PrimaryMeaning: meaning.PrimaryMeaning,
-		PartOfSpeech:   meaning.PartOfSpeech,
-		Phonetic:       meaning.Phonetic,
-		EnglishDef:     meaning.EnglishDef,
-		Definitions:    meaning.Definitions,
-		Examples:       examples,
-		Scenarios:      scenarios,
-		MemoryTip:      w.AIMemoryTip,
+		PrimaryMeaning:     meaning.PrimaryMeaning,
+		PartOfSpeech:       meaning.PartOfSpeech,
+		Phonetic:           meaning.Phonetic,
+		EnglishDef:         meaning.EnglishDef,
+		ContextTranslation: meaning.ContextTranslation,
+		Definitions:        meaning.Definitions,
+		Examples:           examples,
+		Scenarios:          scenarios,
+		MemoryTip:          w.AIMemoryTip,
 	}, nil
 }

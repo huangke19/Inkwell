@@ -20,13 +20,9 @@ func Load() *Config {
 	if dbPath == "" {
 		dbPath = "ewords.db"
 	}
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
 	return &Config{
 		GroqAPIKey: key,
 		DBPath:     dbPath,
-		Port:       port,
+		Port:       "9090",
 	}
 }

@@ -3,6 +3,14 @@
   let bubble = null;
   let hideTimer = null;
 
+  function getSourceMeta() {
+    const canonical = document.querySelector('link[rel="canonical"]')?.href?.trim();
+    return {
+      sourceUrl: canonical || window.location.href,
+      sourceTitle: document.title?.trim() || window.location.hostname,
+    };
+  }
+
   function getContext() {
     // 尝试抓取 Twitter 推文正文作为上下文
     const sel = window.getSelection();
@@ -58,6 +66,7 @@
 
   async function addWord(word) {
     const context = getContext();
+    const sourceMeta = getSourceMeta();
     const b = createBubble();
     b.innerHTML = `<span class="inkwell-icon">⏳</span> 查询中…`;
     b.onclick = null;
@@ -66,7 +75,7 @@
       const res = await fetch(INKWELL_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word, context }),
+        body: JSON.stringify({ word, context, ...sourceMeta }),
       });
 
       const data = await res.json();
@@ -141,11 +150,12 @@
 
   async function addWordToast(text) {
     const context = getContext();
+    const sourceMeta = getSourceMeta();
     try {
       const res = await fetch(INKWELL_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word: text, context }),
+        body: JSON.stringify({ word: text, context, ...sourceMeta }),
       });
       const data = await res.json();
       if (res.status === 201 || res.status === 409) {

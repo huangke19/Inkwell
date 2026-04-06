@@ -3,9 +3,11 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
+	"inkwell/freq"
 	"inkwell/models"
 )
 
@@ -17,7 +19,33 @@ type Renderer struct {
 func NewRenderer() *Renderer {
 	return &Renderer{
 		funcMap: template.FuncMap{
-			"inc": func(i int) int { return i + 1 },
+			"inc":      func(i int) int { return i + 1 },
+			"wordForm": func(word string) freq.FormInfo { return freq.Normalize(word) },
+			"roman": func(i int) string {
+				numerals := []string{"i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"}
+				if i >= 1 && i <= len(numerals) {
+					return numerals[i-1]
+				}
+				return strconv.Itoa(i)
+			},
+			"compactEnglishDef": func(s string) string {
+				if s == "" {
+					return ""
+				}
+				s = strings.TrimSpace(s)
+				parts := strings.Split(s, ". ")
+				if len(parts) > 2 {
+					s = strings.Join(parts[:2], ". ") + "."
+				}
+				if len(s) > 320 {
+					s = s[:320]
+					if idx := strings.LastIndex(s, " "); idx > 240 {
+						s = s[:idx]
+					}
+					s += "…"
+				}
+				return s
+			},
 			"firstSentence": func(s string) string {
 				if s == "" {
 					return ""
@@ -51,7 +79,7 @@ func NewRenderer() *Renderer {
 					return "立即"
 				}
 				t := time.Unix(ts, 0)
-				diff := t.Sub(time.Now())
+				diff := time.Until(t)
 				if diff <= 0 {
 					return "待复习"
 				}

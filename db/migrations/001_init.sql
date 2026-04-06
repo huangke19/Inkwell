@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS words (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     word            TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     context         TEXT,
+    source_url      TEXT    NOT NULL DEFAULT '',
+    source_title    TEXT    NOT NULL DEFAULT '',
     ai_meaning      TEXT,
     ai_examples     TEXT,
     ai_scenarios    TEXT,

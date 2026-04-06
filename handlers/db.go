@@ -9,8 +9,8 @@ import (
 	"inkwell/models"
 )
 
-func createWord(db *sql.DB, word, context string) (*models.Word, error) {
-	return models.CreateWord(db, word, context)
+func createWord(db *sql.DB, word, context, sourceURL, sourceTitle string) (*models.Word, error) {
+	return models.CreateWord(db, word, context, sourceURL, sourceTitle)
 }
 
 func getWordByID(db *sql.DB, id int64) (*models.Word, error) {
@@ -21,8 +21,8 @@ func getWordByText(db *sql.DB, word string) (*models.Word, error) {
 	return models.GetWordByText(db, word)
 }
 
-func listWords(db *sql.DB, q string) ([]*models.Word, error) {
-	return models.ListWords(db, q)
+func listWords(db *sql.DB, q, sort string, limit, offset int) ([]*models.Word, error) {
+	return models.ListWords(db, q, sort, limit, offset)
 }
 
 func deleteWord(db *sql.DB, id int64) error {
@@ -37,12 +37,20 @@ func countDueWords(db *sql.DB) (int, error) {
 	return models.CountDueWords(db)
 }
 
-func listUnmastered(db *sql.DB, q string) ([]*models.Word, error) {
-	return models.ListUnmastered(db, q)
+func listUnmastered(db *sql.DB, q, sort string, limit, offset int) ([]*models.Word, error) {
+	return models.ListUnmastered(db, q, sort, limit, offset)
 }
 
-func listMastered(db *sql.DB, q string) ([]*models.Word, error) {
-	return models.ListMastered(db, q)
+func listMastered(db *sql.DB, q, sort string, limit, offset int) ([]*models.Word, error) {
+	return models.ListMastered(db, q, sort, limit, offset)
+}
+
+func countUnmasteredWordsFiltered(db *sql.DB, q string) (int, error) {
+	return models.CountUnmasteredWordsFiltered(db, q)
+}
+
+func countMasteredWordsFiltered(db *sql.DB, q string) (int, error) {
+	return models.CountMasteredWordsFiltered(db, q)
 }
 
 func markMastered(db *sql.DB, id int64) error {
@@ -56,6 +64,10 @@ func wordStats(db *sql.DB) (total, mastered, due int, err error) {
 	}
 	due, err = models.CountDueWords(db)
 	return
+}
+
+func countWordsFiltered(db *sql.DB, q string) (int, error) {
+	return models.CountWordsFiltered(db, q)
 }
 
 func updateWordRating(db *sql.DB, id int64, cefr, freq, rec string) error {

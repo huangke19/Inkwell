@@ -5,9 +5,33 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+
+	"inkwell/models"
 )
+
+const wordsPerPage = 15
+
+type wordListPageData struct {
+	Words      []*models.Word
+	Query      string
+	Sort       string
+	BaseURL    string
+	TargetID   string
+	Total      int
+	Mastered   int
+	Due        int
+	Count      int
+	EmptyMsg   string
+	Page       int
+	TotalPages int
+	HasPrev    bool
+	HasNext    bool
+	PrevURL    string
+	NextURL    string
+}
 
 type WordHandler struct {
 	db     *sql.DB
@@ -21,7 +45,21 @@ func NewWordHandler(db *sql.DB, r *Renderer, apiKey string) *WordHandler {
 
 func (h *WordHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	words, err := listWords(h.db, q)
+	sort := sortFromQuery(r)
+	page := pageFromQuery(r)
+	filteredTotal, err := countWordsFiltered(h.db, q)
+	if err != nil {
+		http.Error(w, "查询失败", http.StatusInternalServerError)
+		return
+	}
+	totalPages := (filteredTotal + wordsPerPage - 1) / wordsPerPage
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	words, err := listWords(h.db, q, sort, wordsPerPage, (page-1)*wordsPerPage)
 	if err != nil {
 		http.Error(w, "查询失败", http.StatusInternalServerError)
 		return
@@ -32,19 +70,63 @@ func (h *WordHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]any{
-		"Words":    words,
-		"Query":    q,
-		"Total":    total,
-		"Mastered": mastered,
-		"Due":      due,
+	data := wordListPageData{
+		Words:      words,
+		Query:      q,
+		Sort:       sort,
+		BaseURL:    "/",
+		TargetID:   "word-list",
+		Total:      total,
+		Mastered:   mastered,
+		Due:        due,
+		Count:      filteredTotal,
+		Page:       page,
+		TotalPages: totalPages,
+		HasPrev:    page > 1,
+		HasNext:    page < totalPages,
+		PrevURL:    listURL("/", q, sort, page-1),
+		NextURL:    listURL("/", q, sort, page+1),
 	}
 
 	if isHTMX(r) {
-		h.r.Fragment(w, "word_list_rows", data, "templates/index.html")
+		h.r.Fragment(w, "word_list", data, "templates/index.html")
 		return
 	}
 	h.r.Page(w, "index", data)
+}
+
+func pageFromQuery(r *http.Request) int {
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
+		return 1
+	}
+	return page
+}
+
+func sortFromQuery(r *http.Request) string {
+	switch strings.ToLower(strings.TrimSpace(r.URL.Query().Get("sort"))) {
+	case "created":
+		return "created"
+	default:
+		return "rating"
+	}
+}
+
+func listURL(path, q, sort string, page int) string {
+	values := url.Values{}
+	if q != "" {
+		values.Set("q", q)
+	}
+	if sort != "" {
+		values.Set("sort", sort)
+	}
+	if page > 1 {
+		values.Set("page", strconv.Itoa(page))
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return path + "?" + encoded
+	}
+	return path
 }
 
 func (h *WordHandler) AddForm(w http.ResponseWriter, r *http.Request) {
@@ -52,13 +134,15 @@ func (h *WordHandler) AddForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WordHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var word, context string
+	var word, context, sourceURL, sourceTitle string
 
 	if r.Header.Get("Content-Type") == "application/json" {
 		// 扩展 / API 调用
 		var body struct {
-			Word    string `json:"word"`
-			Context string `json:"context"`
+			Word        string `json:"word"`
+			Context     string `json:"context"`
+			SourceURL   string `json:"sourceUrl"`
+			SourceTitle string `json:"sourceTitle"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -68,9 +152,13 @@ func (h *WordHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		word = strings.TrimSpace(body.Word)
 		context = strings.TrimSpace(body.Context)
+		sourceURL = strings.TrimSpace(body.SourceURL)
+		sourceTitle = strings.TrimSpace(body.SourceTitle)
 	} else {
 		word = strings.TrimSpace(r.FormValue("word"))
 		context = strings.TrimSpace(r.FormValue("context"))
+		sourceURL = strings.TrimSpace(r.FormValue("source_url"))
+		sourceTitle = strings.TrimSpace(r.FormValue("source_title"))
 	}
 
 	isJSON := r.Header.Get("Content-Type") == "application/json"
@@ -99,7 +187,7 @@ func (h *WordHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := createWord(h.db, word, context)
+	created, err := createWord(h.db, word, context, sourceURL, sourceTitle)
 	if err != nil {
 		slog.Error("创建单词失败", "err", err)
 		if isJSON {
@@ -144,7 +232,7 @@ func (h *WordHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.r.Page(w, "word_detail", map[string]any{"Word": word})
+	h.r.Page(w, "word_detail", map[string]any{"Word": word, "ShowContextTranslation": true})
 }
 
 func (h *WordHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -168,21 +256,44 @@ func (h *WordHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *WordHandler) Unmastered(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	words, err := listUnmastered(h.db, q)
+	sort := sortFromQuery(r)
+	page := pageFromQuery(r)
+	count, err := countUnmasteredWordsFiltered(h.db, q)
+	if err != nil {
+		http.Error(w, "查询失败", http.StatusInternalServerError)
+		return
+	}
+	totalPages := (count + wordsPerPage - 1) / wordsPerPage
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	words, err := listUnmastered(h.db, q, sort, wordsPerPage, (page-1)*wordsPerPage)
 	if err != nil {
 		http.Error(w, "查询失败", http.StatusInternalServerError)
 		return
 	}
 	due, _ := countDueWords(h.db)
 	data := map[string]any{
-		"Words":    words,
-		"Query":    q,
-		"Count":    len(words),
-		"Due":      due,
-		"EmptyMsg": "太棒了，所有单词都已掌握！",
+		"Words":      words,
+		"Query":      q,
+		"Sort":       sort,
+		"BaseURL":    "/unmastered",
+		"TargetID":   "unmastered-list",
+		"Count":      count,
+		"Due":        due,
+		"EmptyMsg":   "太棒了，所有单词都已掌握！",
+		"Page":       page,
+		"TotalPages": totalPages,
+		"HasPrev":    page > 1,
+		"HasNext":    page < totalPages,
+		"PrevURL":    listURL("/unmastered", q, sort, page-1),
+		"NextURL":    listURL("/unmastered", q, sort, page+1),
 	}
 	if isHTMX(r) {
-		h.r.Fragment(w, "word_list_rows", data, "templates/partials/word_list_rows.html")
+		h.r.Fragment(w, "unmastered_list", data, "templates/unmastered.html")
 		return
 	}
 	h.r.Page(w, "unmastered", data)
@@ -190,20 +301,43 @@ func (h *WordHandler) Unmastered(w http.ResponseWriter, r *http.Request) {
 
 func (h *WordHandler) Mastered(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	words, err := listMastered(h.db, q)
+	sort := sortFromQuery(r)
+	page := pageFromQuery(r)
+	count, err := countMasteredWordsFiltered(h.db, q)
+	if err != nil {
+		http.Error(w, "查询失败", http.StatusInternalServerError)
+		return
+	}
+	totalPages := (count + wordsPerPage - 1) / wordsPerPage
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	words, err := listMastered(h.db, q, sort, wordsPerPage, (page-1)*wordsPerPage)
 	if err != nil {
 		http.Error(w, "查询失败", http.StatusInternalServerError)
 		return
 	}
 
 	data := map[string]any{
-		"Words": words,
-		"Query": q,
-		"Count": len(words),
+		"Words":      words,
+		"Query":      q,
+		"Sort":       sort,
+		"BaseURL":    "/mastered",
+		"TargetID":   "mastered-list",
+		"Count":      count,
+		"Page":       page,
+		"TotalPages": totalPages,
+		"HasPrev":    page > 1,
+		"HasNext":    page < totalPages,
+		"PrevURL":    listURL("/mastered", q, sort, page-1),
+		"NextURL":    listURL("/mastered", q, sort, page+1),
 	}
 
 	if isHTMX(r) {
-		h.r.Fragment(w, "mastered_list_rows", data, "templates/mastered.html")
+		h.r.Fragment(w, "mastered_list", data, "templates/mastered.html")
 		return
 	}
 	h.r.Page(w, "mastered", data)
@@ -265,7 +399,7 @@ func (h *WordHandler) GetAI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.r.Fragment(w, "ai_explanation", map[string]any{"Word": word, "AI": exp})
+	h.r.Fragment(w, "ai_explanation", map[string]any{"Word": word, "AI": exp, "ShowContextTranslation": true})
 }
 
 // CORS 处理扩展发来的预检请求

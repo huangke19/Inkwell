@@ -1,10 +1,25 @@
 {{define "ai_explanation"}}
 <div class="ai-card">
+  {{if and .ShowContextTranslation .AI.ContextTranslation}}
+  <p id="context-translation-slot" class="context-translation" hx-swap-oob="outerHTML">{{.AI.ContextTranslation}}</p>
+  {{end}}
+  <script>
+    function speak(word) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(word);
+      u.lang = 'en-US';
+      u.rate = 0.9;
+      window.speechSynthesis.speak(u);
+    }
+  </script>
+
   {{if .Word.RatingCEFR}}
   <div class="rating-row">
     <span class="rating-badge rec-{{.Word.RatingRec}}">{{.Word.RatingCEFR}} · {{.Word.RatingFreq}} · {{.Word.RatingRec}}</span>
   </div>
   {{end}}
+
   <div class="ai-header">
     <div class="ai-header-left">
       <span class="pos">{{.AI.PartOfSpeech}}</span>
@@ -17,16 +32,6 @@
       <button class="btn-speak" onclick="speak('{{.Word.Word}}')" title="播放发音">🔊</button>
     </div>
   </div>
-  <script>
-    function speak(word) {
-      if (!window.speechSynthesis) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(word);
-      u.lang = 'en-US';
-      u.rate = 0.9;
-      window.speechSynthesis.speak(u);
-    }
-  </script>
 
   {{if .AI.EnglishDef}}
   <div class="section">
@@ -51,9 +56,10 @@
 
   {{if .AI.Examples}}
   <div class="section">
-    <h3>例句（{{len .AI.Examples}} 条）</h3>
+    <h3>例句（{{if gt (len .AI.Examples) 5}}5{{else}}{{len .AI.Examples}}{{end}} 条）</h3>
     <div class="examples">
       {{range $i, $e := .AI.Examples}}
+      {{if lt $i 5}}
       <div class="example">
         <span class="example-num">{{inc $i}}</span>
         <div class="example-content">
@@ -61,6 +67,7 @@
           <p class="example-zh">{{$e.ZH}}</p>
         </div>
       </div>
+      {{end}}
       {{end}}
     </div>
   </div>
