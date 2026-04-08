@@ -52,6 +52,7 @@ func main() {
 	mux.HandleFunc("GET /mastered", wordHandler.Mastered)
 	mux.HandleFunc("GET /words/add", wordHandler.AddForm)
 	mux.HandleFunc("POST /words", wordHandler.Create)
+	mux.HandleFunc("POST /api/words/with-ai", wordHandler.CreateWithAI)
 	mux.HandleFunc("GET /words/{id}", wordHandler.Detail)
 	mux.HandleFunc("DELETE /words/{id}", wordHandler.Delete)
 	mux.HandleFunc("POST /words/{id}/master", wordHandler.Master)

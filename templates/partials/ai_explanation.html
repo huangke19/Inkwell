@@ -84,6 +84,28 @@
   </div>
   {{end}}
 
+  {{if .AI.Etymology}}
+  <div class="section">
+    <h3>词根词源</h3>
+    <p class="etymology">{{.AI.Etymology}}</p>
+  </div>
+  {{end}}
+
+  {{if .AI.Collocations}}
+  <div class="section">
+    <h3>常见搭配</h3>
+    <div class="collocations">
+      {{range .AI.Collocations}}
+      <div class="collocation">
+        <span class="collocation-phrase">{{.Phrase}}</span>
+        <span class="collocation-zh">{{.ZH}}</span>
+        <p class="collocation-example">{{.Example}}</p>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
   {{if .AI.MemoryTip}}
   <div class="section memory-tip">
     <h3>记忆技巧</h3>

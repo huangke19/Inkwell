@@ -12,10 +12,12 @@ type Word struct {
 	Context       string
 	SourceURL     string
 	SourceTitle   string
-	AIMeaning     string // JSON
-	AIExamples    string // JSON
-	AIScenarios   string // JSON
-	AIMemoryTip   string
+	AIMeaning      string // JSON
+	AIExamples     string // JSON
+	AIScenarios    string // JSON
+	AIMemoryTip    string
+	AIEtymology    string
+	AICollocations string // JSON
 	AIGeneratedAt int64
 	IntervalDays  int
 	NextReviewAt  int64
@@ -33,7 +35,7 @@ func (w *Word) AIReady() bool {
 
 const selectCols = `id,word,context,
 	COALESCE(source_url,''),COALESCE(source_title,''),
-	COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),
+	COALESCE(ai_meaning,''),COALESCE(ai_examples,''),COALESCE(ai_scenarios,''),COALESCE(ai_memory_tip,''),COALESCE(ai_etymology,''),COALESCE(ai_collocations,''),
 	COALESCE(ai_generated_at,0),
 	interval_days,next_review_at,repetitions,
 	COALESCE(rating_cefr,''),COALESCE(rating_freq,''),COALESCE(rating_rec,''),
@@ -43,6 +45,24 @@ func CreateWord(db *sql.DB, word, context, sourceURL, sourceTitle string) (*Word
 	res, err := db.Exec(
 		`INSERT INTO words (word, context, source_url, source_title) VALUES (?, ?, ?, ?)`,
 		word, context, sourceURL, sourceTitle,
+	)
+	if err != nil {
+		return nil, err
+	}
+	id, _ := res.LastInsertId()
+	return GetWordByID(db, id)
+}
+
+// CreateWordWithAI 创建单词并同时写入 AI 内容
+func CreateWordWithAI(db *sql.DB, word, context, sourceURL, sourceTitle, meaning, examples, scenarios, memoryTip, etymology, collocations, cefr, freq, rec string) (*Word, error) {
+	res, err := db.Exec(
+		`INSERT INTO words (word, context, source_url, source_title,
+			ai_meaning, ai_examples, ai_scenarios, ai_memory_tip, ai_etymology, ai_collocations, ai_generated_at,
+			rating_cefr, rating_freq, rating_rec)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		word, context, sourceURL, sourceTitle,
+		meaning, examples, scenarios, memoryTip, etymology, collocations, time.Now().Unix(),
+		cefr, freq, rec,
 	)
 	if err != nil {
 		return nil, err
@@ -93,7 +113,7 @@ func ListWords(db *sql.DB, q, sort string, limit, offset int) ([]*Word, error) {
 	for rows.Next() {
 		w := &Word{}
 		if err := rows.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
-			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
+			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip, &w.AIEtymology, &w.AICollocations,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
 			&w.RatingCEFR, &w.RatingFreq, &w.RatingRec,
@@ -110,12 +130,12 @@ func DeleteWord(db *sql.DB, id int64) error {
 	return err
 }
 
-func UpdateWordAI(db *sql.DB, id int64, meaning, examples, scenarios, memoryTip string) error {
+func UpdateWordAI(db *sql.DB, id int64, meaning, examples, scenarios, memoryTip, etymology, collocations string) error {
 	_, err := db.Exec(`UPDATE words SET
-		ai_meaning=?, ai_examples=?, ai_scenarios=?, ai_memory_tip=?,
+		ai_meaning=?, ai_examples=?, ai_scenarios=?, ai_memory_tip=?, ai_etymology=?, ai_collocations=?,
 		ai_generated_at=?, updated_at=unixepoch()
 		WHERE id=?`,
-		meaning, examples, scenarios, memoryTip, time.Now().Unix(), id)
+		meaning, examples, scenarios, memoryTip, etymology, collocations, time.Now().Unix(), id)
 	return err
 }
 
@@ -194,7 +214,7 @@ func ListUnmastered(db *sql.DB, q, sort string, limit, offset int) ([]*Word, err
 	for rows.Next() {
 		w := &Word{}
 		if err := rows.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
-			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
+			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip, &w.AIEtymology, &w.AICollocations,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
 			&w.RatingCEFR, &w.RatingFreq, &w.RatingRec,
@@ -224,7 +244,7 @@ func ListMastered(db *sql.DB, q, sort string, limit, offset int) ([]*Word, error
 	for rows.Next() {
 		w := &Word{}
 		if err := rows.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
-			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
+			&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip, &w.AIEtymology, &w.AICollocations,
 			&w.AIGeneratedAt,
 			&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
 			&w.RatingCEFR, &w.RatingFreq, &w.RatingRec,
@@ -265,7 +285,7 @@ func FormatDays(days int) string {
 func scanWord(row *sql.Row) (*Word, error) {
 	w := &Word{}
 	err := row.Scan(&w.ID, &w.Word, &w.Context, &w.SourceURL, &w.SourceTitle,
-		&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip,
+		&w.AIMeaning, &w.AIExamples, &w.AIScenarios, &w.AIMemoryTip, &w.AIEtymology, &w.AICollocations,
 		&w.AIGeneratedAt,
 		&w.IntervalDays, &w.NextReviewAt, &w.Repetitions,
 		&w.RatingCEFR, &w.RatingFreq, &w.RatingRec,

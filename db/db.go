@@ -17,6 +17,9 @@ var addRatingsSQL string
 //go:embed migrations/003_add_source.sql
 var addSourceSQL string
 
+//go:embed migrations/004_add_etymology_collocations.sql
+var addEtymologyCollocationSQL string
+
 func applyMigration(db *sql.DB, migrationSQL string) error {
 	for _, stmt := range strings.Split(migrationSQL, ";") {
 		stmt = strings.TrimSpace(stmt)
@@ -43,7 +46,7 @@ func Open(path string) (*sql.DB, error) {
 	}
 
 	// 逐条执行迁移，忽略"列已存在"错误（SQLite 不支持 IF NOT EXISTS）
-	for _, migrationSQL := range []string{addRatingsSQL, addSourceSQL} {
+	for _, migrationSQL := range []string{addRatingsSQL, addSourceSQL, addEtymologyCollocationSQL} {
 		if err := applyMigration(db, migrationSQL); err != nil {
 			db.Close()
 			return nil, err

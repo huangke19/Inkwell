@@ -1,0 +1,2 @@
+ALTER TABLE words ADD COLUMN ai_etymology TEXT NOT NULL DEFAULT '';
+ALTER TABLE words ADD COLUMN ai_collocations TEXT NOT NULL DEFAULT '';

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"inkwell/freq"
 	"inkwell/models"
 )
 
@@ -233,6 +234,86 @@ func (h *WordHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.r.Page(w, "word_detail", map[string]any{"Word": word, "ShowContextTranslation": true})
+}
+
+// CreateWithAI 处理 POST /api/words/with-ai，接收完整 AI 内容直接保存
+func (h *WordHandler) CreateWithAI(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Word           string        `json:"word"`
+		Context        string        `json:"context"`
+		SourceURL      string        `json:"sourceUrl"`
+		SourceTitle    string        `json:"sourceTitle"`
+		PrimaryMeaning string        `json:"primary_meaning"`
+		PartOfSpeech   string        `json:"part_of_speech"`
+		Phonetic       string        `json:"phonetic"`
+		EnglishDef     string        `json:"english_def"`
+		Definitions    []interface{} `json:"definitions"`
+		Examples       []interface{} `json:"examples"`
+		Scenarios      []interface{} `json:"scenarios"`
+		MemoryTip      string        `json:"memory_tip"`
+		Etymology      string        `json:"etymology"`
+		Collocations   []interface{} `json:"collocations"`
+		CEFRLevel      string        `json:"cefr_level"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "请求格式错误"})
+		return
+	}
+
+	word := strings.TrimSpace(body.Word)
+	if word == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "单词不能为空"})
+		return
+	}
+
+	existing, _ := getWordByText(h.db, word)
+	if existing != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]any{"error": "already_exists", "word": word, "id": existing.ID})
+		return
+	}
+
+	// 构造 AI 内容 JSON
+	meaningJSON, _ := json.Marshal(map[string]any{
+		"primary_meaning": body.PrimaryMeaning,
+		"part_of_speech":  body.PartOfSpeech,
+		"phonetic":        body.Phonetic,
+		"english_def":     body.EnglishDef,
+		"definitions":     body.Definitions,
+	})
+	examplesJSON, _ := json.Marshal(body.Examples)
+	scenariosJSON, _ := json.Marshal(body.Scenarios)
+	collocationsJSON, _ := json.Marshal(body.Collocations)
+
+	// 评级
+	var cefr, freqVal, rec string
+	if body.CEFRLevel != "" {
+		r := freq.CEFRToRating(body.CEFRLevel)
+		cefr, freqVal, rec = r.CEFR, r.Freq, r.Rec
+	}
+
+	created, err := createWordWithAI(h.db, word, strings.TrimSpace(body.Context),
+		strings.TrimSpace(body.SourceURL), strings.TrimSpace(body.SourceTitle),
+		string(meaningJSON), string(examplesJSON), string(scenariosJSON),
+		body.MemoryTip, body.Etymology, string(collocationsJSON),
+		cefr, freqVal, rec)
+	if err != nil {
+		slog.Error("创建单词失败", "err", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "保存失败"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]any{"id": created.ID, "word": created.Word})
 }
 
 func (h *WordHandler) Delete(w http.ResponseWriter, r *http.Request) {

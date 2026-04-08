@@ -13,6 +13,10 @@ func createWord(db *sql.DB, word, context, sourceURL, sourceTitle string) (*mode
 	return models.CreateWord(db, word, context, sourceURL, sourceTitle)
 }
 
+func createWordWithAI(db *sql.DB, word, context, sourceURL, sourceTitle, meaning, examples, scenarios, memoryTip, etymology, collocations, cefr, freq, rec string) (*models.Word, error) {
+	return models.CreateWordWithAI(db, word, context, sourceURL, sourceTitle, meaning, examples, scenarios, memoryTip, etymology, collocations, cefr, freq, rec)
+}
+
 func getWordByID(db *sql.DB, id int64) (*models.Word, error) {
 	return models.GetWordByID(db, id)
 }

@@ -17,16 +17,24 @@ import (
 )
 
 type AIExplanation struct {
-	PrimaryMeaning     string       `json:"primary_meaning"`
-	PartOfSpeech       string       `json:"part_of_speech"`
-	Phonetic           string       `json:"phonetic"`
-	EnglishDef         string       `json:"english_def"`
-	ContextTranslation string       `json:"context_translation"`
-	Definitions        []Definition `json:"definitions"`
-	Examples           []Example    `json:"examples"`
-	Scenarios          []string     `json:"scenarios"`
-	MemoryTip          string       `json:"memory_tip"`
-	CEFRLevel          string       `json:"cefr_level"`
+	PrimaryMeaning     string        `json:"primary_meaning"`
+	PartOfSpeech       string        `json:"part_of_speech"`
+	Phonetic           string        `json:"phonetic"`
+	EnglishDef         string        `json:"english_def"`
+	ContextTranslation string        `json:"context_translation"`
+	Definitions        []Definition  `json:"definitions"`
+	Examples           []Example     `json:"examples"`
+	Scenarios          []string      `json:"scenarios"`
+	MemoryTip          string        `json:"memory_tip"`
+	Etymology          string        `json:"etymology"`
+	Collocations       []Collocation `json:"collocations"`
+	CEFRLevel          string        `json:"cefr_level"`
+}
+
+type Collocation struct {
+	Phrase  string `json:"phrase"`
+	ZH      string `json:"zh"`
+	Example string `json:"example"`
 }
 
 type Definition struct {
@@ -152,7 +160,15 @@ func fetchAIExplanation(_ string, word *models.Word) (*AIExplanation, error) {
     "常见使用场景2",
     "常见使用场景3"
   ],
-  "memory_tip": "记忆技巧或词根词缀提示（中文，可选）",
+  "memory_tip": "记忆技巧（中文，20字以内，可选）",
+  "etymology": "词根词源分析（中文，格式如：来自拉丁语 X，词根 A 表示「…」+ 词根 B 表示「…」→ 本义「…」。如无明确词根则留空）",
+  "collocations": [
+    {"phrase": "常见搭配词组（英文）", "zh": "中文含义", "example": "一句简短英文例句"},
+    {"phrase": "搭配2", "zh": "含义2", "example": "例句2"},
+    {"phrase": "搭配3", "zh": "含义3", "example": "例句3"},
+    {"phrase": "搭配4", "zh": "含义4", "example": "例句4"},
+    {"phrase": "搭配5", "zh": "含义5", "example": "例句5"}
+  ],
   "cefr_level": "该词的CEFR等级，只填A1/A2/B1/B2/C1/C2之一"
 }`
 
@@ -213,6 +229,7 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 
 		examplesJSON, _ := json.Marshal(exp.Examples)
 		scenariosJSON, _ := json.Marshal(exp.Scenarios)
+		collectionsJSON, _ := json.Marshal(exp.Collocations)
 		meaningJSON, _ := json.Marshal(map[string]any{
 			"primary_meaning":     exp.PrimaryMeaning,
 			"part_of_speech":      exp.PartOfSpeech,
@@ -227,6 +244,8 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 			string(examplesJSON),
 			string(scenariosJSON),
 			exp.MemoryTip,
+			exp.Etymology,
+			string(collectionsJSON),
 		); err != nil {
 			return nil, err
 		}
@@ -235,6 +254,8 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 		w.AIExamples = string(examplesJSON)
 		w.AIScenarios = string(scenariosJSON)
 		w.AIMemoryTip = exp.MemoryTip
+		w.AIEtymology = exp.Etymology
+		w.AICollocations = string(collectionsJSON)
 		w.AIGeneratedAt = time.Now().Unix()
 	}
 
@@ -242,7 +263,7 @@ func EnsureAI(db *sql.DB, apiKey string, w *models.Word) (*AIExplanation, error)
 		if translation, err := translateContext(apiKey, w.Word, w.Context); err == nil && translation != "" {
 			exp.ContextTranslation = translation
 			if updatedMeaning, err := mergeContextTranslation(w.AIMeaning, translation); err == nil {
-				if err := models.UpdateWordAI(db, w.ID, updatedMeaning, w.AIExamples, w.AIScenarios, w.AIMemoryTip); err == nil {
+				if err := models.UpdateWordAI(db, w.ID, updatedMeaning, w.AIExamples, w.AIScenarios, w.AIMemoryTip, w.AIEtymology, w.AICollocations); err == nil {
 					w.AIMeaning = updatedMeaning
 				}
 			}
@@ -387,6 +408,9 @@ func parseAI(w *models.Word) (*AIExplanation, error) {
 	var scenarios []string
 	json.Unmarshal([]byte(w.AIScenarios), &scenarios)
 
+	var collocations []Collocation
+	json.Unmarshal([]byte(w.AICollocations), &collocations)
+
 	return &AIExplanation{
 		PrimaryMeaning:     meaning.PrimaryMeaning,
 		PartOfSpeech:       meaning.PartOfSpeech,
@@ -397,5 +421,7 @@ func parseAI(w *models.Word) (*AIExplanation, error) {
 		Examples:           examples,
 		Scenarios:          scenarios,
 		MemoryTip:          w.AIMemoryTip,
+		Etymology:          w.AIEtymology,
+		Collocations:       collocations,
 	}, nil
 }
